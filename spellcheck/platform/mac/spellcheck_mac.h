@@ -7,6 +7,7 @@
 #pragma once
 
 #include "spellcheck/platform/platform_spellcheck.h"
+#import <Cocoa/Cocoa.h>
 
 namespace Platform {
 
