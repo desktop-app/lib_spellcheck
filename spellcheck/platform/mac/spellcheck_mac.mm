@@ -14,6 +14,12 @@ using Platform::Q2NSString;
 
 namespace {
 
+static int lastSeenTag;
+
+}
+
+namespace {
+
 // +[NSSpellChecker sharedSpellChecker] can throw exceptions depending
 // on the state of the pasteboard, or possibly as a result of
 // third-party code (when setting up services entries).  The following
@@ -31,10 +37,9 @@ NSSpellChecker* SharedSpellChecker() {
 } // namespace
 
 namespace Platform {
+namespace Spellcheck {
 
-static int lastSeenTag;
-
-bool CheckSpelling(const QString wordToCheck, int tag) {
+bool CheckSpelling(const QString &wordToCheck, int tag) {
 	lastSeenTag = tag;
 
 	// -[NSSpellChecker checkSpellingOfString] returns an NSRange that
@@ -55,4 +60,6 @@ bool CheckSpelling(const QString wordToCheck, int tag) {
 	return (spellRange.length == 0);
 }
 
+
+} // namespace Spellcheck
 } // namespace Platform

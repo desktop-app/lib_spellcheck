@@ -7,9 +7,11 @@
 #pragma once
 
 namespace Platform {
+namespace Spellcheck {
 
-[[nodiscard]] bool CheckSpelling(const QString wordToCheck, int tag);
+[[nodiscard]] bool CheckSpelling(const QString &wordToCheck, int tag);
 
+} // namespace Spellcheck
 } // namespace Platform
 
 #ifdef Q_OS_MAC

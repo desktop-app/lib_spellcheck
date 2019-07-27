@@ -7,10 +7,9 @@
 #pragma once
 
 #include "spellcheck/platform/platform_spellcheck.h"
-#import <Cocoa/Cocoa.h>
 
 namespace Platform {
+namespace Spellcheck {
 
-inline bool CheckSpelling() { return true; }
-
+} // namespace Spellcheck
 } // namespace Platform
