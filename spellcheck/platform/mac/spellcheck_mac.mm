@@ -11,12 +11,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 using Platform::Q2NSString;
-
-namespace {
-
-static int lastSeenTag;
-
-}
+using Platform::NS2QString;
 
 namespace {
 
@@ -39,9 +34,7 @@ NSSpellChecker* SharedSpellChecker() {
 namespace Platform {
 namespace Spellcheck {
 
-bool CheckSpelling(const QString &wordToCheck, int tag) {
-	lastSeenTag = tag;
-
+bool CheckSpelling(const QString &wordToCheck) {
 	// -[NSSpellChecker checkSpellingOfString] returns an NSRange that
 	// we can look at to determine if a word is misspelled.
 	NSRange spellRange = {0,0};
@@ -60,6 +53,26 @@ bool CheckSpelling(const QString &wordToCheck, int tag) {
 	return (spellRange.length == 0);
 }
 
+void FillSuggestionList(
+	const QString &wrongWord,
+	std::vector<QString> *optionalSuggestions) {
+
+	NSString* NSWrongWord = Q2NSString(wrongWord);
+	NSSpellChecker* checker = SharedSpellChecker();
+	NSRange wordRange = NSMakeRange(0, wrongWord.length());
+	NSArray* guesses = [checker guessesForWordRange:wordRange
+		inString:NSWrongWord
+		language:nil
+		inSpellDocumentWithTag:0];
+
+	int i = 0;
+	for (NSString* guess in guesses) {
+		optionalSuggestions->push_back(NS2QString(guess));
+		if (++i >= kMaxSuggestions) {
+			break;
+		}
+	}
+}
 
 } // namespace Spellcheck
 } // namespace Platform

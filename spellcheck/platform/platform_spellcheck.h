@@ -9,7 +9,12 @@
 namespace Platform {
 namespace Spellcheck {
 
-[[nodiscard]] bool CheckSpelling(const QString &wordToCheck, int tag);
+constexpr auto kMaxSuggestions = 5;
+
+[[nodiscard]] bool CheckSpelling(const QString &wordToCheck);
+void FillSuggestionList(
+	const QString &wrongWord,
+	std::vector<QString> *optionalSuggestions);
 
 } // namespace Spellcheck
 } // namespace Platform
