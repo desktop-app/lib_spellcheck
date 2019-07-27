@@ -32,7 +32,7 @@ NSSpellChecker* SharedSpellChecker() {
 } // namespace
 
 namespace Platform {
-namespace Spellcheck {
+namespace Spellchecker {
 
 bool CheckSpelling(const QString &wordToCheck) {
 	// -[NSSpellChecker checkSpellingOfString] returns an NSRange that
@@ -45,7 +45,7 @@ bool CheckSpelling(const QString &wordToCheck) {
 					  startingAt:0
 					  language:nil
 					  wrap:false
-					  inSpellDocumentWithTag:tag
+					  inSpellDocumentWithTag:0
 					  wordCount:nil];
 
 	// If the length of the misspelled word == 0,
@@ -74,5 +74,22 @@ void FillSuggestionList(
 	}
 }
 
-} // namespace Spellcheck
+void AddWord(const QString &word) {
+	[SharedSpellChecker() learnWord:Q2NSString(word)];
+}
+
+void RemoveWord(const QString &word) {
+	[SharedSpellChecker() unlearnWord:Q2NSString(word)];
+}
+
+void IgnoreWord(const QString &word) {
+	[SharedSpellChecker() ignoreWord:Q2NSString(word)
+		inSpellDocumentWithTag:0];
+}
+
+bool IsWordInDictionary(const QString &wordToCheck) {
+	return [SharedSpellChecker() hasLearnedWord:Q2NSString(wordToCheck)];
+}
+
+} // namespace Spellchecker
 } // namespace Platform

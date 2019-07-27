@@ -7,7 +7,7 @@
 #include "spellcheck/platform/linux/spellcheck_linux.h"
 
 namespace Platform {
-namespace Spellcheck {
+namespace Spellchecker {
 
-} // namespace Spellcheck
+} // namespace Spellchecker
 } // namespace Platform

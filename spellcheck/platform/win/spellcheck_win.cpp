@@ -7,7 +7,7 @@
 #include "spellcheck/platform/win/spellcheck_win.h"
 
 namespace Platform {
-namespace Spellcheck {
+namespace Spellchecker {
 
-} // namespace Spellcheck
+} // namespace Spellchecker
 } // namespace Platform

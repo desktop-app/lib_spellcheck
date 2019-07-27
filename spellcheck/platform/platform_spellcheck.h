@@ -7,16 +7,22 @@
 #pragma once
 
 namespace Platform {
-namespace Spellcheck {
+namespace Spellchecker {
 
 constexpr auto kMaxSuggestions = 5;
 
 [[nodiscard]] bool CheckSpelling(const QString &wordToCheck);
+[[nodiscard]] bool IsWordInDictionary(const QString &wordToCheck);
+
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions);
 
-} // namespace Spellcheck
+void AddWord(const QString &word);
+void RemoveWord(const QString &word);
+void IgnoreWord(const QString &word);
+
+} // namespace Spellchecker
 } // namespace Platform
 
 #ifdef Q_OS_MAC

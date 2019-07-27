@@ -9,7 +9,7 @@
 #include "spellcheck/platform/platform_spellcheck.h"
 
 namespace Platform {
-namespace Spellcheck {
+namespace Spellchecker {
 
-} // namespace Spellcheck
+} // namespace Spellchecker
 } // namespace Platform
