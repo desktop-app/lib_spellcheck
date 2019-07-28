@@ -39,6 +39,9 @@ public:
 
 	bool isLanguageSupported(const QString& lang);
 
+	void addWord(const QString& word);
+	void removeWord(const QString& word);
+	void ignoreWord(const QString& word);
 	bool checkSpelling(const QString& word);
 	void fillSuggestionList(
 		const QString &wrongWord,
@@ -147,6 +150,28 @@ bool WindowsSpellChecker::checkSpelling(const QString& word) {
 	return true;
 }
 
+void WindowsSpellChecker::addWord(const QString& word) {
+	for (const auto &[_, spellchecker] : _spellcheckerMap) {
+		spellchecker->Add(Q2WString(word));
+	}
+}
+
+void WindowsSpellChecker::removeWord(const QString& word) {
+	for (const auto &[_, spellchecker] : _spellcheckerMap) {
+		ComPtr<ISpellChecker2> spellchecker2;
+		spellchecker->QueryInterface(IID_PPV_ARGS(&spellchecker2));
+		if (spellchecker2) {
+			spellchecker2->Remove(Q2WString(word));
+		}
+	}
+}
+
+void WindowsSpellChecker::ignoreWord(const QString& word) {
+	for (const auto &[_, spellchecker] : _spellcheckerMap) {
+		spellchecker->Ignore(Q2WString(word));
+	}
+}
+
 ////// End of WindowsSpellChecker class.
 
 std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
@@ -171,6 +196,24 @@ void FillSuggestionList(
 	std::vector<QString> *optionalSuggestions) {
 	SharedSpellChecker()->fillSuggestionList(wrongWord, optionalSuggestions);
 }
+
+void AddWord(const QString &word) {
+	SharedSpellChecker()->addWord(word);
+}
+
+void RemoveWord(const QString &word) {
+	SharedSpellChecker()->removeWord(word);
+}
+
+void IgnoreWord(const QString &word) {
+	SharedSpellChecker()->ignoreWord(word);
+}
+
+bool IsWordInDictionary(const QString &wordToCheck) {
+	// ISpellChecker can't check if a word is in the dictionary.
+	return false;
+}
+
 
 } // namespace Spellchecker
 } // namespace Platform
