@@ -143,11 +143,12 @@ bool WindowsSpellChecker::checkSpelling(const QString& word) {
 				SUCCEEDED(spellingError->get_CorrectiveAction(&action)) &&
 				(action == CORRECTIVE_ACTION_GET_SUGGESTIONS ||
 				 action == CORRECTIVE_ACTION_REPLACE)) {
-				return false;
+			} else {
+				return true;
 			}
 		}
 	}
-	return true;
+	return false;
 }
 
 void WindowsSpellChecker::addWord(const QString& word) {
@@ -175,8 +176,14 @@ void WindowsSpellChecker::ignoreWord(const QString& word) {
 ////// End of WindowsSpellChecker class.
 
 std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
+	static auto isLanguageSetUp = false;
 	static auto spellchecker = std::make_unique<WindowsSpellChecker>();
-	spellchecker->createSpellChecker(QString("en-US"));
+	if (!isLanguageSetUp) {
+		for (const auto lang : QLocale::system().uiLanguages()) {
+			spellchecker->createSpellChecker(lang);
+		}
+		isLanguageSetUp = true;
+	}
 	return spellchecker;
 }
 
