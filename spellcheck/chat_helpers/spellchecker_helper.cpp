@@ -6,6 +6,7 @@
 //
 
 #include "chat_helpers/spellchecker_helper.h"
+#include "platform/platform_spellcheck.h"
 
 namespace {
 
@@ -305,16 +306,57 @@ QChar::Script LocaleToScriptCode(const QString &locale) {
 
 } // namespace
 
-namespace SpellCheckerHelper {
+void SpellCheckerHelper::requestTextCheck(
+	QTextDocument &doc,
+	std::vector<RangeWord> *misspelledWords,
+	std::vector<RangeWord> *correctWords) {
+	// We have to calculate the positions of correct words
+	// to keep them formatted by user.
 
-bool IsWordSkippable(const QStringRef &word) {
+	// \b - split the string into an alternating seq of non-word and word tokens
+	const auto splitRegexp = QRegExp("_|\\b");
+
+	QTextCursor c(doc.docHandle(), 0);
+	const auto from = doc.begin();
+	const auto to = doc.end();
+
+	for (auto block = from; block != to; block = block.next()) {
+		const auto blockPosition = block.position();
+		const auto text = block.text();
+		for (const auto &ref : text.splitRef(splitRegexp)) {
+			if (ref.trimmed().isEmpty()) {
+				continue;
+			}
+
+			const auto beginPosition = blockPosition + ref.position();
+			const auto endPosition = beginPosition + ref.length();
+			const auto range = std::make_pair(beginPosition, endPosition);
+
+			if (!isWordSkippable(ref) &&
+				!Platform::Spellchecker::CheckSpelling(ref.toString())) {
+				misspelledWords->push_back(range);
+			} else {
+				correctWords->push_back(range);
+			}
+		}
+	}
+}
+
+bool SpellCheckerHelper::isWordSkippable(const QStringRef &word) {
 	static auto systemScripts = std::vector<QChar::Script>();
 	if (!systemScripts.size()) {
 		for (const auto& lang : QLocale::system().uiLanguages()) {
 			systemScripts.push_back(LocaleToScriptCode(lang));
 		}
 	}
-	const auto wordScript = word.at(0).script();
+	// Find the first letter.
+	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
+		return c.isLetter();
+	});
+	if (firstLetter == word.end()) {
+		return true;
+	}
+	const auto wordScript = firstLetter->script();
 	if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
 		return true;
 	}
@@ -324,4 +366,33 @@ bool IsWordSkippable(const QStringRef &word) {
 	}) != word.end();
 }
 
-} // namespace SpellCheckerHelper
+void SpellCheckerHelper::fillSuggestionList(const QString &wrongWord,
+		std::vector<QString>* optionalSuggestions) {
+	Platform::Spellchecker::FillSuggestionList(
+		wrongWord,
+		optionalSuggestions);
+}
+
+bool SpellCheckerHelper::isWordInDictionary(const QString &word) {
+	return Platform::Spellchecker::IsWordInDictionary(word);
+}
+
+bool SpellCheckerHelper::checkSingleWord(const QString &word) {
+	if (!isWordSkippable(&word)) {
+		return Platform::Spellchecker::CheckSpelling(word);
+	}
+	return true;
+}
+
+void SpellCheckerHelper::addWord(const QString &word) {
+	Platform::Spellchecker::AddWord(word);
+}
+
+void SpellCheckerHelper::removeWord(const QString &word) {
+	Platform::Spellchecker::RemoveWord(word);
+}
+
+void SpellCheckerHelper::ignoreWord(const QString &word) {
+	Platform::Spellchecker::IgnoreWord(word);
+}
+

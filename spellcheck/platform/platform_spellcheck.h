@@ -25,10 +25,45 @@ void IgnoreWord(const QString &word);
 } // namespace Spellchecker
 } // namespace Platform
 
+// Platform dependent implementations.
+// TODO: We should use Hunspell for Win 7 and Linux.
+
 #ifdef Q_OS_MAC
 #include "spellcheck/platform/mac/spellcheck_mac.h"
-#elif defined Q_OS_LINUX // Q_OS_MAC
-#include "spellcheck/platform/linux/spellcheck_linux.h"
-#elif defined Q_OS_WIN // Q_OS_MAC || Q_OS_LINUX
+#elif defined Q_OS_WIN // Q_OS_MAC
 #include "spellcheck/platform/win/spellcheck_win.h"
-#endif // Q_OS_MAC || Q_OS_LINUX || Q_OS_WIN
+#elif defined Q_OS_WINRT || defined Q_OS_LINUX // Q_OS_MAC || Q_OS_WIN
+
+namespace Platform {
+namespace Spellchecker {
+
+inline bool CheckSpelling(const QString &wordToCheck) {
+	return true;
+}
+
+inline void FillSuggestionList(
+	const QString &wrongWord,
+	std::vector<QString> *optionalSuggestions) {
+	// TODO.
+}
+
+inline void AddWord(const QString &word) {
+	// TODO.
+}
+
+inline void RemoveWord(const QString &word) {
+	// TODO.
+}
+
+inline void IgnoreWord(const QString &word) {
+	// TODO.
+}
+
+inline bool IsWordInDictionary(const QString &wordToCheck) {
+	return false;
+}
+
+} // namespace Spellchecker
+} // namespace Platform
+
+#endif // Q_OS_MAC || Q_OS_WIN || Q_OS_WINRT || Q_OS_LINUX
