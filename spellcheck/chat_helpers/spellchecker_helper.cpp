@@ -6,7 +6,8 @@
 //
 
 #include "chat_helpers/spellchecker_helper.h"
-#include "platform/platform_spellcheck.h"
+
+namespace Spellchecker {
 
 namespace {
 
@@ -308,8 +309,8 @@ QChar::Script LocaleToScriptCode(const QString &locale) {
 
 void SpellCheckerHelper::requestTextCheck(
 	QTextDocument &doc,
-	std::vector<RangeWord> *misspelledWords,
-	std::vector<RangeWord> *correctWords) {
+	MisspelledWords *misspelledWords,
+	MisspelledWords *correctWords) {
 	// We have to calculate the positions of correct words
 	// to keep them formatted by user.
 
@@ -367,7 +368,7 @@ bool SpellCheckerHelper::isWordSkippable(const QStringRef &word) {
 }
 
 void SpellCheckerHelper::fillSuggestionList(const QString &wrongWord,
-		std::vector<QString>* optionalSuggestions) {
+		std::vector<QString> *optionalSuggestions) {
 	Platform::Spellchecker::FillSuggestionList(
 		wrongWord,
 		optionalSuggestions);
@@ -396,3 +397,4 @@ void SpellCheckerHelper::ignoreWord(const QString &word) {
 	Platform::Spellchecker::IgnoreWord(word);
 }
 
+} // namespace Spellchecker

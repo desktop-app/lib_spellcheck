@@ -9,6 +9,8 @@
 namespace Platform {
 namespace Spellchecker {
 
+using MisspelledWords = std::vector<std::pair<int, int>>;
+
 constexpr auto kMaxSuggestions = 5;
 
 [[nodiscard]] bool CheckSpelling(const QString &wordToCheck);
@@ -21,6 +23,10 @@ void FillSuggestionList(
 void AddWord(const QString &word);
 void RemoveWord(const QString &word);
 void IgnoreWord(const QString &word);
+
+void CheckSpellingText(
+	const QString &text,
+	MisspelledWords *misspelledWordRanges);
 
 } // namespace Spellchecker
 } // namespace Platform
@@ -61,6 +67,11 @@ inline void IgnoreWord(const QString &word) {
 
 inline bool IsWordInDictionary(const QString &wordToCheck) {
 	return false;
+}
+
+inline void CheckSpellingText(
+	const QString &text,
+	MisspelledWords *misspelledWordRanges) {
 }
 
 } // namespace Spellchecker

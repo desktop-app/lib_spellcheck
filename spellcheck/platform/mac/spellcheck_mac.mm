@@ -21,7 +21,7 @@ namespace {
 // receives nil if an exception is thrown, in which case
 // spell-checking will not work, but it also will not crash the
 // browser.
-NSSpellChecker* SharedSpellChecker() {
+NSSpellChecker *SharedSpellChecker() {
 	@try {
 		return [NSSpellChecker sharedSpellChecker];
 	} @catch (id exception) {
@@ -53,20 +53,46 @@ bool CheckSpelling(const QString &wordToCheck) {
 	return (spellRange.length == 0);
 }
 
+
+// There's no need to check the language on the Mac.
+void CheckSpellingText(
+	const QString &text,
+	MisspelledWords *misspelledWordRanges) {
+	NSArray<NSTextCheckingResult *> *spellRanges =
+		[SharedSpellChecker()
+			checkString:Q2NSString(text)
+			range:NSMakeRange(0, text.length())
+			types:NSTextCheckingTypeSpelling
+			options:nil
+			inSpellDocumentWithTag:0
+			orthography:nil
+			wordCount:nil];
+
+	misspelledWordRanges->reserve(spellRanges.count);
+	for (NSTextCheckingResult *result in spellRanges) {
+		if (result.resultType != NSTextCheckingTypeSpelling) {
+			continue;
+		}
+		misspelledWordRanges->push_back({
+			result.range.location,
+			result.range.length});
+	}
+}
+
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 
-	NSString* NSWrongWord = Q2NSString(wrongWord);
-	NSSpellChecker* checker = SharedSpellChecker();
+	NSString *NSWrongWord = Q2NSString(wrongWord);
+	NSSpellChecker *checker = SharedSpellChecker();
 	NSRange wordRange = NSMakeRange(0, wrongWord.length());
-	NSArray* guesses = [checker guessesForWordRange:wordRange
+	NSArray *guesses = [checker guessesForWordRange:wordRange
 		inString:NSWrongWord
 		language:nil
 		inSpellDocumentWithTag:0];
 
 	int i = 0;
-	for (NSString* guess in guesses) {
+	for (NSString *guess in guesses) {
 		optionalSuggestions->push_back(NS2QString(guess));
 		if (++i >= kMaxSuggestions) {
 			break;

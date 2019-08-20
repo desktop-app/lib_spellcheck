@@ -5,21 +5,25 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 
-using RangeWord = std::pair<int, int>;
+#include "platform/platform_spellcheck.h"
 
-class SpellCheckerHelper : public QObject {
+namespace Spellchecker {
+
+using MisspelledWords = Platform::Spellchecker::MisspelledWords;
+
+class SpellCheckerHelper {
 
 public:
 	SpellCheckerHelper() = default;
 
 	void requestTextCheck(
 		QTextDocument &doc,
-		std::vector<RangeWord> *misspelledWords,
-		std::vector<RangeWord> *correctWords);
+		MisspelledWords *misspelledWords,
+		MisspelledWords *correctWords);
 	bool isWordSkippable(const QStringRef &word);
 
 	void fillSuggestionList(const QString &wrongWord,
-		std::vector<QString>* optionalSuggestions);
+		std::vector<QString> *optionalSuggestions);
 
 	bool checkSingleWord(const QString &word);
 	bool isWordInDictionary(const QString &word);
@@ -29,3 +33,5 @@ public:
 	void ignoreWord(const QString &word);
 
 };
+
+} // namespace Spellchecker
