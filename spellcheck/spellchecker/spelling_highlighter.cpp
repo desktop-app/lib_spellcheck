@@ -20,7 +20,7 @@ namespace {
 
 constexpr auto kTagProperty = QTextFormat::UserProperty + 4;
 
-constexpr auto kColdSpellcheckingTimeout = crl::time(3000);
+constexpr auto kColdSpellcheckingTimeout = crl::time(1000);
 
 const auto kKeysToCheck = {
 	Qt::Key_Up,
@@ -82,7 +82,7 @@ SpellingHighlighter::SpellingHighlighter(
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _spellCheckerHelper(std::make_unique<SpellCheckerHelper>())
 , _unspellcheckableCallback(std::move(callback))
-, _spellCheckerTimer([=] { })
+, _coldSpellcheckingTimer([=] { checkCurrentText(); })
 , _textEdit(textEdit) {
 
 	_textEdit->installEventFilter(this);
@@ -117,6 +117,11 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		};
 		ranges::for_each(_cachedRanges, handleSymbolRemoving);
 		rehighlight();
+	} else {
+		if (_coldSpellcheckingTimer.isActive()) {
+			_coldSpellcheckingTimer.cancel();
+		}
+		_coldSpellcheckingTimer.callOnce(kColdSpellcheckingTimeout);
 	}
 }
 

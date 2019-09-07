@@ -38,6 +38,8 @@ private:
 
 	void invokeCheck(const QString &text);
 
+	void checkCurrentText();
+
 	QString getTagFromRange(int begin, int length);
 
 	QTextCharFormat misspelledFormat;
@@ -49,7 +51,7 @@ private:
 
 	MisspelledWords _cachedRanges;
 
-	base::Timer _spellCheckerTimer;
+	base::Timer _coldSpellcheckingTimer;
 
 	QTextEdit *_textEdit;
 
