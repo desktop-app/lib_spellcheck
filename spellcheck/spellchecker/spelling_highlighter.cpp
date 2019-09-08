@@ -108,13 +108,40 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	auto indexOfRange = _cachedRanges.begin() - 1;
 	Fn<void()> callbackOnFinish;
 	if ((removed == 1) && !isEndOfDoc) {
+		auto indexOfRange = _cachedRanges.begin() - 1;
 		const auto handleSymbolRemoving = [&](auto &&range) {
-			if (range.first + range.second < pos) {
+			indexOfRange++;
+			const auto wordEnd = range.first + range.second;
+			if (wordEnd < pos) {
 				return;
+			}
+
+			if (range.first == pos + 1) {
+				// The begin of the word.
+				_cursor.setPosition(pos);
+				_cursor.select(QTextCursor::WordUnderCursor);
+				const auto begin = _cursor.selectionStart();
+				const auto end = _cursor.selectionEnd();
+
+				if (end - begin > range.second) {
+					// Two words merged into one.
+					range.first = begin;
+					range.second = end - begin;
+
+					// Check if the previous word is correct.
+					if (indexOfRange != _cachedRanges.begin()) {
+						const auto prevIt = indexOfRange - 1;
+						const auto prev = *(prevIt);
+						if (range.first < prev.first + prev.second) {
+							_cachedRanges.erase(prevIt);
+						}
+					}
+					return;
+				}
 			}
 			// Reduce the length of the word with which the symbol has been
 			// removed and reduce the length of all words that stand after it.
-			(pos > range.first && pos < range.first + range.second
+			(pos >= range.first && pos < wordEnd
 				? range.second
 				: range.first)--;
 		};
