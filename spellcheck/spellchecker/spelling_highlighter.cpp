@@ -104,9 +104,12 @@ SpellingHighlighter::SpellingHighlighter(
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
-	if ((removed == 1) && (document()->toPlainText().length() != pos)) {
+	bool isEndOfDoc = (document()->toPlainText().length() == pos);
+	auto indexOfRange = _cachedRanges.begin() - 1;
+	Fn<void()> callbackOnFinish;
+	if ((removed == 1) && !isEndOfDoc) {
 		const auto handleSymbolRemoving = [&](auto &&range) {
-			if (range.first < pos) {
+			if (range.first + range.second < pos) {
 				return;
 			}
 			// Reduce the length of the word with which the symbol has been
@@ -116,6 +119,51 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 				: range.first)--;
 		};
 		ranges::for_each(_cachedRanges, handleSymbolRemoving);
+		rehighlight();
+	} else if ((added == 1) && !isEndOfDoc) {
+		const auto handleSymbolInsertion = [&](auto &&range) {
+			indexOfRange++;
+			const auto wordEnd = range.first + range.second;
+			if (wordEnd < pos) {
+				return;
+			}
+			if (wordEnd > pos && range.first < pos) {
+				// Cursor is inside of the word.
+				_cursor.setPosition(pos + added);
+				_cursor.select(QTextCursor::WordUnderCursor);
+				if (range.first == _cursor.selectionStart() &&
+					wordEnd + 1 == _cursor.selectionEnd()) {
+					// The word under the cursor has increased.
+					range.second++;
+				} else {
+					// The word under the cursor is divided into two words.
+					const auto firstWordLen = pos - range.first;
+					const auto secondWordLen = range.second - firstWordLen;
+
+					const auto firstWordPos = range.first;
+					const auto secondWordPos = range.first + firstWordLen + 1;
+
+					// We should add a new range after the current word.
+					const auto current = indexOfRange;
+					if (current != _cachedRanges.begin()) {
+						callbackOnFinish = [=] {
+							_cachedRanges.insert(current + 1, {
+								secondWordPos,
+								secondWordLen });
+						};
+					}
+
+					range.first = firstWordPos;
+					range.second = firstWordLen;
+				}
+			} else if (range.first >= pos) {
+				range.first++;
+			}
+		};
+		ranges::for_each(_cachedRanges, handleSymbolInsertion);
+		if (callbackOnFinish) {
+			callbackOnFinish();
+		}
 		rehighlight();
 	} else {
 		if (_coldSpellcheckingTimer.isActive()) {
