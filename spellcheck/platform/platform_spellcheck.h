@@ -9,7 +9,8 @@
 namespace Platform {
 namespace Spellchecker {
 
-using MisspelledWords = std::vector<std::pair<int, int>>;
+using MisspelledWord = std::pair<int, int>;
+using MisspelledWords = std::vector<MisspelledWord>;
 
 constexpr auto kMaxSuggestions = 5;
 

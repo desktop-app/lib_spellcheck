@@ -18,6 +18,7 @@
 namespace Spellchecker {
 
 using MisspelledWords = Platform::Spellchecker::MisspelledWords;
+using MisspelledWord = Platform::Spellchecker::MisspelledWord;
 using UncheckableCallback = Fn<bool(const QString &tag)>;
 
 class SpellingHighlighter final : public QSyntaxHighlighter {
@@ -39,6 +40,7 @@ private:
 	void invokeCheck(const QString &text);
 
 	void checkCurrentText();
+	bool checkSingleWord(const MisspelledWord &range);
 
 	QString getTagFromRange(int begin, int length);
 
