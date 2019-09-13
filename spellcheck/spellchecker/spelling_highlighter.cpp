@@ -129,26 +129,39 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	Fn<void()> callbackOnFinish;
 	auto isWordUnderCursorMisspelled = false;
 	if ((removed == 1) && !isEndOfDoc) {
-		const auto handleSymbolRemoving = [&](auto &&range) {
-			indexOfRange++;
-			const auto wordEnd = range.first + range.second;
-			if (wordEnd < pos) {
-				return;
+
+		// Skip the all words to the left of the cursor.
+		auto &&filteredRanges = (
+			_cachedRanges
+		) | ranges::view::filter([&](const auto &range) {
+			return range.first + range.second > pos;
+		});
+
+		// Move the all words to the right of the cursor.
+		ranges::for_each(filteredRanges, [&](auto &&range) {
+			if (!(pos >= range.first && pos < range.first + range.second)) {
+				range.first--;
 			}
-			// Reduce the length of the word with which the symbol has been
-			// removed and reduce the length of all words that stand after it.
+		});
+
+		// Process the word under cursor.
+		[&] {
+			auto &&range = filteredRanges.front();
+			const auto wordEnd = range.first + range.second;
+			const auto itCurrent = findWord(range.first);
+
+			// Reduce the length of the word under cursor.
 			if (pos >= range.first && pos < wordEnd) {
 				range.second--;
 				isWordUnderCursorMisspelled = true;
 				if (checkSingleWord(range)) {
 					callbackOnFinish = [=] {
-						_cachedRanges.erase(indexOfRange);
+						_cachedRanges.erase(itCurrent);
 					};
 				}
-			} else {
-				range.first--;
 			}
 
+			// The begin of the word.
 			if (range.first != pos) {
 				return;
 			}
@@ -169,10 +182,10 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			// Two words merged into one.
 			range = std::move(word);
 
-			const auto prevIt = indexOfRange - 1;
+			const auto prevIt = itCurrent - 1;
 			// Check if the previous word is correct.
 			const auto isFirstCorrect = [&] {
-				if (indexOfRange == _cachedRanges.begin()) {
+				if (itCurrent == _cachedRanges.begin()) {
 					return true;
 				}
 				const auto prev = *(prevIt);
@@ -184,16 +197,14 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			callbackOnFinish = [=] {
 				// Check a new word.
 				if (checkSingleWord(range)) {
-					_cachedRanges.erase(indexOfRange);
+					_cachedRanges.erase(itCurrent);
 				}
 				if (!isFirstCorrect && !isSecondCorrect) {
 					_cachedRanges.erase(prevIt);
 				}
 			};
-		};
-		ranges::for_each(_cachedRanges, handleSymbolRemoving);
+		}();
 
-		// TODO word under cursor
 		const auto toCheck = [&] {
 			if (isWordUnderCursorMisspelled) {
 				return false;
