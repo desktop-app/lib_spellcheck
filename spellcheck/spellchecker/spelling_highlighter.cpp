@@ -169,27 +169,27 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			// Two words merged into one.
 			range = std::move(word);
 
-			auto isFirstCorrect = true;
+			const auto prevIt = indexOfRange - 1;
+			// Check if the previous word is correct.
+			const auto isFirstCorrect = [&] {
+				if (indexOfRange == _cachedRanges.begin()) {
+					return true;
+				}
+				const auto prev = *(prevIt);
+				return !(range.first < prev.first + prev.second);
+			}();
 			// The current word is always misspelled.
 			const auto isSecondCorrect = false;
 
-			// Check if the previous word is correct.
-			const auto prevIt = indexOfRange - 1;
-			if (indexOfRange != _cachedRanges.begin()) {
-				const auto prev = *(prevIt);
-				if (range.first < prev.first + prev.second) {
-					isFirstCorrect = false;
-				}
-			}
-			// Check a new word.
-			if (checkSingleWord(range)) {
-				callbackOnFinish = [=] {
+			callbackOnFinish = [=] {
+				// Check a new word.
+				if (checkSingleWord(range)) {
 					_cachedRanges.erase(indexOfRange);
-					if (!isFirstCorrect && !isSecondCorrect) {
-						_cachedRanges.erase(prevIt);
-					}
-				};
-			}
+				}
+				if (!isFirstCorrect && !isSecondCorrect) {
+					_cachedRanges.erase(prevIt);
+				}
+			};
 		};
 		ranges::for_each(_cachedRanges, handleSymbolRemoving);
 
