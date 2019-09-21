@@ -124,11 +124,23 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		}
 	};
 
+	const auto isPositionInsideWord = [](auto p, auto &&range) {
+		return p >= range.first && p < range.first + range.second;
+	};
+
 	bool isEndOfDoc = (document()->toPlainText().length() == pos);
 	auto indexOfRange = _cachedRanges.begin() - 1;
 	Fn<void()> callbackOnFinish;
 	auto isWordUnderCursorMisspelled = false;
-	if ((removed == 1) && !isEndOfDoc) {
+	if ((removed > 0) && !isEndOfDoc) {
+		// Remove the all words that was in the selection.
+		_cachedRanges = (
+			_cachedRanges
+		) | ranges::view::filter([&](const auto &range) {
+			const auto word = QRect(range.first, 0, range.second, 1);
+			const auto selection = QRect(pos, 0, removed, 1);
+			return !word.intersects(selection);
+		}) | ranges::to_vector;
 
 		// Skip the all words to the left of the cursor.
 		auto &&filteredRanges = (
@@ -139,103 +151,12 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 
 		// Move the all words to the right of the cursor.
 		ranges::for_each(filteredRanges, [&](auto &&range) {
-			if (!(pos >= range.first && pos < range.first + range.second)) {
-				range.first--;
+			if (!isPositionInsideWord(pos, range)) {
+				range.first -= removed;
 			}
 		});
 
-		// Process the word under cursor.
-		[&] {
-			auto &&range = filteredRanges.front();
-			const auto wordEnd = range.first + range.second;
-			const auto itCurrent = findWord(range.first);
-
-			// Reduce the length of the word under cursor.
-			if (pos >= range.first && pos < wordEnd) {
-				range.second--;
-				isWordUnderCursorMisspelled = true;
-				if (checkSingleWord(range)) {
-					callbackOnFinish = [=] {
-						_cachedRanges.erase(itCurrent);
-					};
-				}
-			}
-
-			// The begin of the word.
-			if (range.first != pos) {
-				return;
-			}
-			isWordUnderCursorMisspelled = true;
-			// The begin of the word.
-			const auto word = getWordUnderPosition(pos);
-
-			// 2 misspelled to 1 misspelled - erase the previous range.
-			// 2 misspelled to 1 correct - erase both ranges.
-			// 1 correct and 1 misspelled to 1 misspelled -
-			// update the current range with the misspelled word.
-			// 1 correct and 1 misspelled to 1 correct -
-			// erase the current range.
-
-			if (word.second <= range.second) {
-				return;
-			}
-			// Two words merged into one.
-			range = std::move(word);
-
-			const auto prevIt = itCurrent - 1;
-			// Check if the previous word is correct.
-			const auto isFirstCorrect = [&] {
-				if (itCurrent == _cachedRanges.begin()) {
-					return true;
-				}
-				const auto prev = *(prevIt);
-				return !(range.first < prev.first + prev.second);
-			}();
-			// The current word is always misspelled.
-			const auto isSecondCorrect = false;
-
-			callbackOnFinish = [=] {
-				// Check a new word.
-				if (checkSingleWord(range)) {
-					_cachedRanges.erase(itCurrent);
-				}
-				if (!isFirstCorrect && !isSecondCorrect) {
-					_cachedRanges.erase(prevIt);
-				}
-			};
-		}();
-
-		const auto toCheck = [&] {
-			if (isWordUnderCursorMisspelled) {
-				return false;
-			}
-			const auto it = findWord(pos);
-			if (it == _cachedRanges.begin()) {
-				return true;
-			}
-			const auto prevIt = it - 1;
-			const auto prev = *prevIt;
-			const auto p = pos - 1;
-			if (p <= prev.first + prev.second && p > prev.first) {
-
-				const auto w = getWordUnderPosition(p);
-				if (checkSingleWord(w)) {
-					_cachedRanges.erase(prevIt);
-				} else {
-					prevIt->first = w.first;
-					prevIt->second = w.second;
-				}
-				return false;
-			}
-			return true;
-		}();
-		if (toCheck) {
-			checkAndAddWordUnderCursos(pos - removed);
-		}
-
-		if (callbackOnFinish) {
-			callbackOnFinish();
-		}
+		checkAndAddWordUnderCursos(pos);
 		rehighlight();
 	} else if ((added == 1) && !isEndOfDoc) {
 		const auto addedSymbol =
