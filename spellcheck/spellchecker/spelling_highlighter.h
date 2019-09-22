@@ -40,9 +40,11 @@ private:
 	void invokeCheck(const QString &text);
 
 	void checkCurrentText();
+	void checkChangedText();
 	bool checkSingleWord(const MisspelledWord &range);
 
 	QString getTagFromRange(int begin, int length);
+	MisspelledWord getWordUnderPosition(int position);
 
 	QTextCharFormat misspelledFormat;
 
@@ -52,6 +54,10 @@ private:
 	UncheckableCallback _unspellcheckableCallback;
 
 	MisspelledWords _cachedRanges;
+
+	int _addedSymbols = 0;
+	int _removedSymbols = 0;
+	int _lastPosition = 0;
 
 	base::Timer _coldSpellcheckingTimer;
 

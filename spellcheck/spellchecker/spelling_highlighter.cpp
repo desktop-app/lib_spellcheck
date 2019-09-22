@@ -82,7 +82,7 @@ SpellingHighlighter::SpellingHighlighter(
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _spellCheckerHelper(std::make_unique<SpellCheckerHelper>())
 , _unspellcheckableCallback(std::move(callback))
-, _coldSpellcheckingTimer([=] { checkCurrentText(); })
+, _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _textEdit(textEdit) {
 
 	_textEdit->installEventFilter(this);
@@ -101,162 +101,135 @@ SpellingHighlighter::SpellingHighlighter(
 		document(),
 		&QTextDocument::contentsChange,
 		[=](int p, int r, int a) { contentsChange(p, r, a); });
+
+	checkCurrentText();
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
+	if (document()->toPlainText().isEmpty()) {
+		_cachedRanges.clear();
+		return;
+	}
+
+	// Skip the all words to the left of the cursor.
+	auto &&filteredRanges = (
+		_cachedRanges
+	) | ranges::view::filter([&](const auto &range) {
+		return range.first + range.second > pos;
+	});
+
+	// Move the all words to the right of the cursor.
+	ranges::for_each(filteredRanges, [&](auto &range) {
+		if (!IsPositionInsideWord(pos, range)) {
+			range.first += added - removed;
+		}
+	});
+
+	const auto wordUnderPos = getWordUnderPosition(pos);
+	const auto rectUnderPos = QRect(
+		wordUnderPos.first,
+		0,
+		wordUnderPos.second,
+		1);
+
+	_cachedRanges = (
+		_cachedRanges
+	) | ranges::view::filter([&](const auto &range) {
+		const auto word = QRect(range.first, 0, range.second, 1);
+		const auto selection = QRect(pos, 0, removed, 1);
+		return !(word.intersects(selection) || word.intersects(rectUnderPos));
+	}) | ranges::to_vector;
+
+	rehighlight();
+
+	_addedSymbols += added;
+	_removedSymbols += removed;
+	_lastPosition = pos;
+
+	const auto isLetterOrNumber = (added == 1
+		&& document()->toPlainText().midRef(
+			pos,
+			added).at(0).isLetterOrNumber());
+
+	if ((removed == 1) || isLetterOrNumber) {
+		if (_coldSpellcheckingTimer.isActive()) {
+			_coldSpellcheckingTimer.cancel();
+		}
+		_coldSpellcheckingTimer.callOnce(kColdSpellcheckingTimeout);
+	} else {
+		checkChangedText();
+	}
+}
+
+void SpellingHighlighter::checkChangedText() {
+	const auto pos = _lastPosition;
+	const auto added = _addedSymbols;
+	const auto removed = _removedSymbols;
+
 	const auto findWord = [&](int position) {
 		return ranges::find_if(_cachedRanges, [&](MisspelledWord w) {
 			return w.first >= position;
 		});
 	};
 
-	const auto getWordUnderPosition = [&](int position) {
-		_cursor.setPosition(position);
-		_cursor.select(QTextCursor::WordUnderCursor);
-		const auto start = _cursor.selectionStart();
-		return std::make_pair(start, _cursor.selectionEnd() - start);
-	};
-
 	const auto checkAndAddWordUnderCursos = [&](int position) {
 		const auto w = getWordUnderPosition(position);
 		if (!checkSingleWord(w)) {
-			_cachedRanges.insert(findWord(w.first), std::move(w));
+			ranges::insert(_cachedRanges, findWord(w.first), std::move(w));
 		}
 	};
 
-	const auto isPositionInsideWord = [](auto p, auto &&range) {
-		return p >= range.first && p < range.first + range.second;
-	};
+	if (removed > 0) {
+		checkAndAddWordUnderCursos(pos);
+		rehighlight();
+	}
 
-	bool isEndOfDoc = (document()->toPlainText().length() == pos);
-	auto indexOfRange = _cachedRanges.begin() - 1;
-	Fn<void()> callbackOnFinish;
-	auto isWordUnderCursorMisspelled = false;
-	if ((removed > 0) && !isEndOfDoc) {
+	if (added > 0) {
+
 		// Remove the all words that was in the selection.
 		_cachedRanges = (
 			_cachedRanges
 		) | ranges::view::filter([&](const auto &range) {
 			const auto word = QRect(range.first, 0, range.second, 1);
-			const auto selection = QRect(pos, 0, removed, 1);
+			const auto selection = QRect(pos, 0, 1, 1);
 			return !word.intersects(selection);
 		}) | ranges::to_vector;
 
-		// Skip the all words to the left of the cursor.
-		auto &&filteredRanges = (
-			_cachedRanges
-		) | ranges::view::filter([&](const auto &range) {
-			return range.first + range.second > pos;
-		});
+		const auto newBeginSelection = getWordUnderPosition(pos).first;
+		const auto endWord = getWordUnderPosition(pos + added);
 
-		// Move the all words to the right of the cursor.
-		ranges::for_each(filteredRanges, [&](auto &&range) {
-			if (!isPositionInsideWord(pos, range)) {
-				range.first -= removed;
-			}
-		});
+		const auto addedText = document()->toPlainText().mid(
+			newBeginSelection,
+			endWord.first + endWord.second - newBeginSelection);
 
-		checkAndAddWordUnderCursos(pos);
-		rehighlight();
-	} else if ((added == 1) && !isEndOfDoc) {
-		const auto addedSymbol =
-			document()->toPlainText().midRef(pos, added).at(0);
 
-		const auto handleSymbolInsertion = [&](auto &&range) {
-			indexOfRange++;
-			const auto wordEnd = range.first + range.second;
-			if (wordEnd < pos) {
-				return;
-			}
-			if (wordEnd > pos && range.first < pos) {
-				// Cursor is inside of the word.
-				isWordUnderCursorMisspelled = true;
-				const auto w = getWordUnderPosition(pos + added);
-				if (range.first == w.first &&
-					wordEnd + 1 == w.first + w.second) {
-					// The word under the cursor has increased.
-					range.second++;
-
-					if (checkSingleWord(range)) {
-						callbackOnFinish = [=] {
-							_cachedRanges.erase(indexOfRange);
-						};
-					}
-				} else {
-					// The word under the cursor is separated into two words.
-					const auto firstWordLen = pos - range.first;
-					const auto secondWordLen = range.second - firstWordLen;
-
-					const auto firstWordPos = range.first;
-					const auto secondWordPos = range.first + firstWordLen + 1;
-
-					// 2 correct - erase the current range.
-					// 2 misspelled - add a new range
-					// and update the current range.
-					// 1 correct and 1 misspelled - update the current range
-					// with the misspelled word.
-
-					// We should add a new range after the current word.
-					const auto firstWord = std::make_pair(
-						firstWordPos,
-						firstWordLen);
-					const auto secondWord = std::make_pair(
-						secondWordPos,
-						secondWordLen);
-
-					const auto isFirstCorrect = checkSingleWord(firstWord);
-					const auto isSecondCorrect = checkSingleWord(secondWord);
-
-					if (isFirstCorrect && isSecondCorrect) {
-						callbackOnFinish = [=] {
-							_cachedRanges.erase(indexOfRange);
-						};
-					} else if (!isFirstCorrect && !isSecondCorrect) {
-						if (indexOfRange != _cachedRanges.begin()) {
-							callbackOnFinish = [=] {
-								_cachedRanges.insert(
-									indexOfRange + 1,
-									std::move(secondWord));
-							};
-						}
-						range = std::move(firstWord);
-					} else if (isFirstCorrect && !isSecondCorrect) {
-						range = std::move(secondWord);
-					} else if (!isFirstCorrect && isSecondCorrect) {
-						range = std::move(firstWord);
-					}
+		const auto weak = make_weak(this);
+		crl::async([=, text = std::move(addedText)]() mutable {
+			MisspelledWords misspelledWordRanges;
+			Platform::Spellchecker::CheckSpellingText(std::move(text), &misspelledWordRanges);
+			crl::on_main(weak, [=, ranges = std::move(misspelledWordRanges)]() mutable {
+				if (!ranges.empty()) {
+					ranges::for_each(ranges, [&](auto &&range) {
+						range.first += newBeginSelection;
+					});
+					ranges::insert(_cachedRanges, findWord(newBeginSelection), std::move(ranges));
+					// _cachedRanges = std::move(ranges);
 				}
-			} else if (range.first >= pos) {
-				range.first++;
-			}
-		};
-		ranges::for_each(_cachedRanges, handleSymbolInsertion);
-
-		if (!isWordUnderCursorMisspelled) {
-			//// If the word under cursor was correct.
-			// But it was separated into two words.
-			if (!addedSymbol.isLetter()) {
-				checkAndAddWordUnderCursos(pos);
-			}
-			// But it was correct and became misspelled.
-			checkAndAddWordUnderCursos(pos + added);
-			////
-		}
-
-		if (callbackOnFinish) {
-			callbackOnFinish();
-		}
-		rehighlight();
-	} else {
-		if (_coldSpellcheckingTimer.isActive()) {
-			_coldSpellcheckingTimer.cancel();
-		}
-		_coldSpellcheckingTimer.callOnce(kColdSpellcheckingTimeout);
+				rehighlight();
+			});
+		});
 	}
+
+
+	_lastPosition = 0;
+	_removedSymbols = 0;
+	_addedSymbols = 0;
 }
 
 void SpellingHighlighter::checkCurrentText() {
-	invokeCheck(document()->toPlainText());
+	if (const auto text = document()->toPlainText(); !text.isEmpty()) {
+		invokeCheck(text);
+	}
 }
 
 void SpellingHighlighter::invokeCheck(const QString &text) {
@@ -284,9 +257,15 @@ QString SpellingHighlighter::getTagFromRange(int begin, int length) {
 	return _cursor.charFormat().property(kTagProperty).toString();
 }
 
+MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
+	_cursor.setPosition(position);
+	_cursor.select(QTextCursor::WordUnderCursor);
+	const auto start = _cursor.selectionStart();
+	return std::make_pair(start, _cursor.selectionEnd() - start);
+}
+
 void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty()) {
-		invokeCheck(std::move(text));
 		return;
 	}
 
@@ -305,7 +284,10 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		const auto *k = static_cast<QKeyEvent *>(e);
 
 		if (ranges::find(kKeysToCheck, k->key()) != kKeysToCheck.end()) {
-			checkCurrentText();
+			if (_addedSymbols + _removedSymbols + _lastPosition) {
+				_coldSpellcheckingTimer.cancel();
+				checkCurrentText();
+			}
 		}
 	}
 	return false;
