@@ -206,14 +206,19 @@ void SpellingHighlighter::checkChangedText() {
 		const auto weak = make_weak(this);
 		crl::async([=, text = std::move(addedText)]() mutable {
 			MisspelledWords misspelledWordRanges;
-			Platform::Spellchecker::CheckSpellingText(std::move(text), &misspelledWordRanges);
-			crl::on_main(weak, [=, ranges = std::move(misspelledWordRanges)]() mutable {
+			Platform::Spellchecker::CheckSpellingText(
+				std::move(text),
+				&misspelledWordRanges);
+			ranges::for_each(misspelledWordRanges, [&](auto &&range) {
+				range.first += newBeginSelection;
+			});
+			crl::on_main(weak, [=, ranges = filterSkippableWords(
+				misspelledWordRanges)]() mutable {
 				if (!ranges.empty()) {
-					ranges::for_each(ranges, [&](auto &&range) {
-						range.first += newBeginSelection;
-					});
-					ranges::insert(_cachedRanges, findWord(newBeginSelection), std::move(ranges));
-					// _cachedRanges = std::move(ranges);
+					ranges::insert(
+						_cachedRanges,
+						findWord(newBeginSelection),
+						std::move(ranges));
 				}
 				rehighlight();
 			});
@@ -224,6 +229,14 @@ void SpellingHighlighter::checkChangedText() {
 	_lastPosition = 0;
 	_removedSymbols = 0;
 	_addedSymbols = 0;
+}
+
+MisspelledWords SpellingHighlighter::filterSkippableWords(
+	MisspelledWords &ranges) {
+	return ranges | ranges::view::filter([&](const auto &range) {
+		return !_spellCheckerHelper->isWordSkippable(document()
+			->toPlainText().midRef(range.first, range.second));
+	}) | ranges::to_vector;
 }
 
 void SpellingHighlighter::checkCurrentText() {
@@ -238,7 +251,8 @@ void SpellingHighlighter::invokeCheck(const QString &text) {
 		MisspelledWords misspelledWordRanges;
 		Platform::Spellchecker::CheckSpellingText(text, &misspelledWordRanges);
 		if (!misspelledWordRanges.empty()) {
-			crl::on_main(weak, [=, ranges = std::move(misspelledWordRanges)]() mutable {
+			crl::on_main(weak, [=, ranges = filterSkippableWords(
+				misspelledWordRanges)]() mutable {
 				_cachedRanges = std::move(ranges);
 				rehighlight();
 			});

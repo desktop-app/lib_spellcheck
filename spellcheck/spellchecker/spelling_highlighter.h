@@ -42,6 +42,7 @@ private:
 	void checkCurrentText();
 	void checkChangedText();
 	bool checkSingleWord(const MisspelledWord &range);
+	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
 
 	QString getTagFromRange(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
