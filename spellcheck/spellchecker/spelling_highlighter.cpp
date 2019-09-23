@@ -166,42 +166,41 @@ void SpellingHighlighter::checkChangedText() {
 	const auto added = _addedSymbols;
 	const auto removed = _removedSymbols;
 
-	const auto findWord = [&](int position) {
-		return ranges::find_if(_cachedRanges, [&](MisspelledWord w) {
-			return w.first >= position;
-		});
-	};
+	_lastPosition = 0;
+	_removedSymbols = 0;
+	_addedSymbols = 0;
 
-	const auto checkAndAddWordUnderCursos = [&](int position) {
-		const auto w = getWordUnderPosition(position);
-		if (!checkSingleWord(w)) {
-			ranges::insert(_cachedRanges, findWord(w.first), std::move(w));
+	const auto wordUnderCursor = getWordUnderPosition(pos);
+	const auto wordInCacheIt = ranges::find_if(_cachedRanges, [&](auto &&w) {
+		return w.first >= wordUnderCursor.first;
+	});
+
+	const auto checkAndAddWordUnderCursos = [&] {
+		if (!checkSingleWord(wordUnderCursor)) {
+			ranges::insert(
+				_cachedRanges,
+				wordInCacheIt,
+				std::move(wordUnderCursor));
 		}
 	};
 
-	if (removed > 0) {
-		checkAndAddWordUnderCursos(pos);
-		rehighlight();
-	}
-
 	if (added > 0) {
+		const auto lastWordNewSelection = getWordUnderPosition(pos + added);
 
-		// Remove the all words that was in the selection.
-		_cachedRanges = (
-			_cachedRanges
-		) | ranges::view::filter([&](const auto &range) {
-			const auto word = QRect(range.first, 0, range.second, 1);
-			const auto selection = QRect(pos, 0, 1, 1);
-			return !word.intersects(selection);
-		}) | ranges::to_vector;
+		// This is the same word.
+		if (wordUnderCursor == lastWordNewSelection) {
+			checkAndAddWordUnderCursos();
+			rehighlight();
+			return;
+		}
 
-		const auto newBeginSelection = getWordUnderPosition(pos).first;
-		const auto endWord = getWordUnderPosition(pos + added);
+		const auto beginNewSelection = wordUnderCursor.first;
+		const auto endNewSelection =
+			lastWordNewSelection.first + lastWordNewSelection.second;
 
 		const auto addedText = document()->toPlainText().mid(
-			newBeginSelection,
-			endWord.first + endWord.second - newBeginSelection);
-
+			beginNewSelection,
+			endNewSelection - beginNewSelection);
 
 		const auto weak = make_weak(this);
 		crl::async([=, text = std::move(addedText)]() mutable {
@@ -209,26 +208,28 @@ void SpellingHighlighter::checkChangedText() {
 			Platform::Spellchecker::CheckSpellingText(
 				std::move(text),
 				&misspelledWordRanges);
+			// Move the all found words to the right place.
 			ranges::for_each(misspelledWordRanges, [&](auto &&range) {
-				range.first += newBeginSelection;
+				range.first += beginNewSelection;
 			});
 			crl::on_main(weak, [=, ranges = filterSkippableWords(
 				misspelledWordRanges)]() mutable {
 				if (!ranges.empty()) {
 					ranges::insert(
 						_cachedRanges,
-						findWord(newBeginSelection),
+						wordInCacheIt,
 						std::move(ranges));
 				}
 				rehighlight();
 			});
 		});
+		return;
 	}
 
-
-	_lastPosition = 0;
-	_removedSymbols = 0;
-	_addedSymbols = 0;
+	if (removed > 0) {
+		checkAndAddWordUnderCursos();
+		rehighlight();
+	}
 }
 
 MisspelledWords SpellingHighlighter::filterSkippableWords(
