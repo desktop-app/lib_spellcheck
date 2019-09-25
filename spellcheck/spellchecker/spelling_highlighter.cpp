@@ -73,6 +73,27 @@ MisspelledWords GetRanges(const QString &text) {
 	return ranges;
 }
 
+inline bool IntersectsWordRanges(
+	const MisspelledWord &range,
+	int pos2,
+	int len2) {
+	const auto l1 = range.first;
+	const auto r1 = range.first + range.second - 1;
+	const auto l2 = pos2;
+	const auto r2 = pos2 + len2 - 1;
+	return !(l1 > r2 || l2 > r1);
+}
+
+inline bool IntersectsWordRanges(
+	const MisspelledWord &range,
+	const MisspelledWord &range2) {
+	const auto l1 = range.first;
+	const auto r1 = range.first + range.second - 1;
+	const auto l2 = range2.first;
+	const auto r2 = range2.first + range2.second - 1;
+	return !(l1 > r2 || l2 > r1);
+}
+
 } // namespace
 
 SpellingHighlighter::SpellingHighlighter(
@@ -126,18 +147,12 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	});
 
 	const auto wordUnderPos = getWordUnderPosition(pos);
-	const auto rectUnderPos = QRect(
-		wordUnderPos.first,
-		0,
-		wordUnderPos.second,
-		1);
 
 	_cachedRanges = (
 		_cachedRanges
 	) | ranges::view::filter([&](const auto &range) {
-		const auto word = QRect(range.first, 0, range.second, 1);
-		const auto selection = QRect(pos, 0, removed, 1);
-		return !(word.intersects(selection) || word.intersects(rectUnderPos));
+		return !(IntersectsWordRanges(range, pos, removed)
+			|| IntersectsWordRanges(range, wordUnderPos));
 	}) | ranges::to_vector;
 
 	rehighlight();
