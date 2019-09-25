@@ -186,15 +186,17 @@ void SpellingHighlighter::checkChangedText() {
 	_addedSymbols = 0;
 
 	const auto wordUnderCursor = getWordUnderPosition(pos);
-	const auto wordInCacheIt = ranges::find_if(_cachedRanges, [&](auto &&w) {
-		return w.first >= wordUnderCursor.first;
-	});
+	const auto wordInCacheIt = [=] {
+		return ranges::find_if(_cachedRanges, [&](auto &&w) {
+			return w.first >= wordUnderCursor.first;
+		});
+	};
 
 	const auto checkAndAddWordUnderCursos = [&] {
 		if (!checkSingleWord(wordUnderCursor)) {
 			ranges::insert(
 				_cachedRanges,
-				wordInCacheIt,
+				wordInCacheIt(),
 				std::move(wordUnderCursor));
 		}
 	};
@@ -232,7 +234,7 @@ void SpellingHighlighter::checkChangedText() {
 				if (!ranges.empty()) {
 					ranges::insert(
 						_cachedRanges,
-						wordInCacheIt,
+						wordInCacheIt(),
 						std::move(ranges));
 				}
 				rehighlight();
@@ -298,12 +300,19 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty()) {
 		return;
 	}
+	const auto block = currentBlock();
+	// Skip the all words outside the current block.
+	auto &&rangesOfBlock = (
+		_cachedRanges
+	) | ranges::view::filter([&](const auto &range) {
+		return IntersectsWordRanges(range, block.position(), block.length());
+	});
 
-	for (const auto &[position, length] : _cachedRanges) {
+	for (const auto &[position, length] : rangesOfBlock) {
 		if (_unspellcheckableCallback(getTagFromRange(position, length))) {
 			continue;
 		}
-		setFormat(position, length, misspelledFormat);
+		setFormat(position - block.position(), length, misspelledFormat);
 	}
 
 	setCurrentBlockState(0);
