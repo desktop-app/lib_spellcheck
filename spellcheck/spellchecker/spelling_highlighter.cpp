@@ -159,7 +159,9 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 
 	_addedSymbols += added;
 	_removedSymbols += removed;
-	_lastPosition = pos;
+	if (!_lastPosition) {
+		_lastPosition = pos;
+	}
 
 	const auto isLetterOrNumber = (added == 1
 		&& document()->toPlainText().midRef(
@@ -309,7 +311,11 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	});
 
 	for (const auto &[position, length] : rangesOfBlock) {
-		if (_unspellcheckableCallback(getTagFromRange(position, length))) {
+		const auto endOfBlock = text.length() + block.position();
+		const auto l = (endOfBlock < position + length)
+			? endOfBlock - position
+			: length;
+		if (_unspellcheckableCallback(getTagFromRange(position, l))) {
 			continue;
 		}
 		setFormat(position - block.position(), length, misspelledFormat);
