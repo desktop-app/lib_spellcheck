@@ -37,7 +37,10 @@ private:
 	void contentsChange(int pos, int removed, int added);
 	void checkText(const QString &text);
 
-	void invokeCheck(const QString &text);
+	void invokeCheckText(
+		const QString &text,
+		Fn<void(const MisspelledWords &ranges)> callback,
+		int rangesOffset = 0);
 
 	void checkCurrentText();
 	void checkChangedText();

@@ -221,27 +221,9 @@ void SpellingHighlighter::checkChangedText() {
 			beginNewSelection,
 			endNewSelection - beginNewSelection);
 
-		const auto weak = make_weak(this);
-		crl::async([=, text = std::move(addedText)]() mutable {
-			MisspelledWords misspelledWordRanges;
-			Platform::Spellchecker::CheckSpellingText(
-				std::move(text),
-				&misspelledWordRanges);
-			// Move the all found words to the right place.
-			ranges::for_each(misspelledWordRanges, [&](auto &&range) {
-				range.first += beginNewSelection;
-			});
-			crl::on_main(weak, [=, ranges = filterSkippableWords(
-				misspelledWordRanges)]() mutable {
-				if (!ranges.empty()) {
-					ranges::insert(
-						_cachedRanges,
-						wordInCacheIt(),
-						std::move(ranges));
-				}
-				rehighlight();
-			});
-		});
+		invokeCheckText(std::move(addedText), [=](const MisspelledWords &r) {
+			ranges::insert(_cachedRanges, wordInCacheIt(), std::move(r));
+		}, beginNewSelection);
 		return;
 	}
 
@@ -261,22 +243,38 @@ MisspelledWords SpellingHighlighter::filterSkippableWords(
 
 void SpellingHighlighter::checkCurrentText() {
 	if (const auto text = document()->toPlainText(); !text.isEmpty()) {
-		invokeCheck(text);
+		invokeCheckText(text, [&](const MisspelledWords &ranges) {
+			_cachedRanges = std::move(ranges);
+		});
 	}
 }
 
-void SpellingHighlighter::invokeCheck(const QString &text) {
-	const auto weak = make_weak(this);
-	crl::async([=, text = std::move(text)]() mutable {
+void SpellingHighlighter::invokeCheckText(
+	const QString &text,
+	Fn<void(const MisspelledWords &ranges)> callback,
+	int rangesOffset) {
+
+	const auto weak = Ui::MakeWeak(this);
+	crl::async([=,
+		text = std::move(text),
+		callback = std::move(callback)]() mutable {
 		MisspelledWords misspelledWordRanges;
-		Platform::Spellchecker::CheckSpellingText(text, &misspelledWordRanges);
-		if (!misspelledWordRanges.empty()) {
-			crl::on_main(weak, [=, ranges = filterSkippableWords(
-				misspelledWordRanges)]() mutable {
-				_cachedRanges = std::move(ranges);
-				rehighlight();
+		Platform::Spellchecker::CheckSpellingText(
+			std::move(text),
+			&misspelledWordRanges);
+		if (rangesOffset) {
+			ranges::for_each(misspelledWordRanges, [&](auto &&range) {
+				range.first += rangesOffset;
 			});
 		}
+		crl::on_main(weak, [=,
+				ranges = filterSkippableWords(misspelledWordRanges),
+				callback = std::move(callback)]() mutable {
+			if (!ranges.empty()) {
+				callback(std::move(ranges));
+			}
+			rehighlight();
+		});
 	});
 }
 
