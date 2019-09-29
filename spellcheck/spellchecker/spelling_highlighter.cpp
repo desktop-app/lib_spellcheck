@@ -33,6 +33,10 @@ const auto kKeysToCheck = {
 	Qt::Key_End,
 };
 
+inline int EndOfWord(const MisspelledWord &range) {
+	return range.first + range.second;
+}
+
 MisspelledWords GetRanges(const QString &text) {
 	MisspelledWords ranges;
 
@@ -78,7 +82,7 @@ inline bool IntersectsWordRanges(
 	int pos2,
 	int len2) {
 	const auto l1 = range.first;
-	const auto r1 = range.first + range.second - 1;
+	const auto r1 = EndOfWord(range) - 1;
 	const auto l2 = pos2;
 	const auto r2 = pos2 + len2 - 1;
 	return !(l1 > r2 || l2 > r1);
@@ -88,9 +92,9 @@ inline bool IntersectsWordRanges(
 	const MisspelledWord &range,
 	const MisspelledWord &range2) {
 	const auto l1 = range.first;
-	const auto r1 = range.first + range.second - 1;
+	const auto r1 = EndOfWord(range) - 1;
 	const auto l2 = range2.first;
-	const auto r2 = range2.first + range2.second - 1;
+	const auto r2 = EndOfWord(range2) - 1;
 	return !(l1 > r2 || l2 > r1);
 }
 
@@ -132,7 +136,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	auto &&filteredRanges = (
 		_cachedRanges
 	) | ranges::view::filter([&](const auto &range) {
-		return range.first + range.second > pos;
+		return EndOfWord(range) > pos;
 	});
 
 	// Move the all words to the right of the cursor.
@@ -214,8 +218,7 @@ void SpellingHighlighter::checkChangedText() {
 		}
 
 		const auto beginNewSelection = wordUnderCursor.first;
-		const auto endNewSelection =
-			lastWordNewSelection.first + lastWordNewSelection.second;
+		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
 		const auto addedText = document()->toPlainText().mid(
 			beginNewSelection,
