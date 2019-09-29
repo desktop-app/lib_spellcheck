@@ -183,6 +183,10 @@ void SpellingHighlighter::checkChangedText() {
 	_removedSymbols = 0;
 	_addedSymbols = 0;
 
+	if (_coldSpellcheckingTimer.isActive()) {
+		_coldSpellcheckingTimer.cancel();
+	}
+
 	const auto wordUnderCursor = getWordUnderPosition(pos);
 	const auto wordInCacheIt = [=] {
 		return ranges::find_if(_cachedRanges, [&](auto &&w) {
@@ -319,14 +323,21 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 }
 
 bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
-	if (_textEdit && (e->type() == QEvent::KeyPress)) {
+	if (!_textEdit) {
+		return false;
+	}
+	if (e->type() == QEvent::KeyPress) {
 		const auto *k = static_cast<QKeyEvent *>(e);
 
 		if (ranges::find(kKeysToCheck, k->key()) != kKeysToCheck.end()) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
-				_coldSpellcheckingTimer.cancel();
 				checkCurrentText();
 			}
+		}
+	} else if ((o == _textEdit->viewport())
+			&& (e->type() == QEvent::MouseButtonPress)) {
+		if (_addedSymbols + _removedSymbols + _lastPosition) {
+			checkCurrentText();
 		}
 	}
 	return false;
