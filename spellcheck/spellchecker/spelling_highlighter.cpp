@@ -119,11 +119,6 @@ SpellingHighlighter::SpellingHighlighter(
 #endif
 	misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 
-	connect(
-		document(),
-		&QTextDocument::contentsChange,
-		[=](int p, int r, int a) { contentsChange(p, r, a); });
-
 	checkCurrentText();
 }
 

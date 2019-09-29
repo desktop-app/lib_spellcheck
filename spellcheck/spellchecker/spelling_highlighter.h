@@ -32,12 +32,14 @@ public:
 	~SpellingHighlighter() override {
 	}
 
+	void contentsChange(int pos, int removed, int added);
+	void checkCurrentText();
+
 protected:
 	void highlightBlock(const QString &text) override;
 	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
-	void contentsChange(int pos, int removed, int added);
 	void checkText(const QString &text);
 
 	void invokeCheckText(
@@ -45,7 +47,6 @@ private:
 		Fn<void(const MisspelledWords &ranges)> callback,
 		int rangesOffset = 0);
 
-	void checkCurrentText();
 	void checkChangedText();
 	bool checkSingleWord(const MisspelledWord &range);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
