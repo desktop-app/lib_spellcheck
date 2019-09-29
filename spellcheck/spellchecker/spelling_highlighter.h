@@ -25,7 +25,10 @@ class SpellingHighlighter final : public QSyntaxHighlighter {
 	Q_OBJECT
 
 public:
-	SpellingHighlighter(QTextEdit *textEdit, UncheckableCallback callback);
+	SpellingHighlighter(
+		QTextEdit *textEdit,
+		std::shared_ptr<Spellchecker::Controller> controller,
+		UncheckableCallback callback);
 	~SpellingHighlighter() override {
 	}
 
@@ -53,7 +56,7 @@ private:
 	QTextCharFormat misspelledFormat;
 
 	QTextCursor _cursor;
-	std::unique_ptr<Spellchecker::Controller> _spellCheckerController;
+	std::shared_ptr<Spellchecker::Controller> _spellCheckerController;
 
 	UncheckableCallback _unspellcheckableCallback;
 

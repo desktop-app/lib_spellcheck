@@ -98,10 +98,11 @@ inline bool IntersectsWordRanges(
 
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
+	std::shared_ptr<Spellchecker::Controller> controller,
 	UncheckableCallback callback)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
-, _spellCheckerController(std::make_unique<Spellchecker::Controller>())
+, _spellCheckerController(controller)
 , _unspellcheckableCallback(std::move(callback))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _textEdit(textEdit) {
