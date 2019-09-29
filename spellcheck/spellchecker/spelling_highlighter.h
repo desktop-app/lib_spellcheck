@@ -5,7 +5,7 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 
-#include "chat_helpers/spellchecker_helper.h"
+#include "spellchecker/spellchecker_controller.h"
 
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
@@ -53,7 +53,7 @@ private:
 	QTextCharFormat misspelledFormat;
 
 	QTextCursor _cursor;
-	std::unique_ptr<SpellCheckerHelper> _spellCheckerHelper;
+	std::unique_ptr<Spellchecker::Controller> _spellCheckerController;
 
 	UncheckableCallback _unspellcheckableCallback;
 

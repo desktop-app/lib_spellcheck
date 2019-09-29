@@ -101,7 +101,7 @@ SpellingHighlighter::SpellingHighlighter(
 	UncheckableCallback callback)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
-, _spellCheckerHelper(std::make_unique<SpellCheckerHelper>())
+, _spellCheckerController(std::make_unique<Spellchecker::Controller>())
 , _unspellcheckableCallback(std::move(callback))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _textEdit(textEdit) {
@@ -236,7 +236,7 @@ void SpellingHighlighter::checkChangedText() {
 MisspelledWords SpellingHighlighter::filterSkippableWords(
 	MisspelledWords &ranges) {
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !_spellCheckerHelper->isWordSkippable(document()
+		return !_spellCheckerController->isWordSkippable(document()
 			->toPlainText().midRef(range.first, range.second));
 	}) | ranges::to_vector;
 }
@@ -280,7 +280,7 @@ void SpellingHighlighter::invokeCheckText(
 
 bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
 	const auto w = document()->toPlainText().mid(range.first, range.second);
-	return _spellCheckerHelper->checkSingleWord(std::move(w));
+	return _spellCheckerController->checkSingleWord(std::move(w));
 }
 
 QString SpellingHighlighter::getTagFromRange(int begin, int length) {

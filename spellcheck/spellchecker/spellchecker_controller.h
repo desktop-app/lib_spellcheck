@@ -11,10 +11,10 @@ namespace Spellchecker {
 
 using MisspelledWords = Platform::Spellchecker::MisspelledWords;
 
-class SpellCheckerHelper {
+class Controller {
 
 public:
-	SpellCheckerHelper() = default;
+	Controller() = default;
 
 	void requestTextCheck(
 		QTextDocument &doc,

@@ -5,7 +5,7 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 
-#include "chat_helpers/spellchecker_helper.h"
+#include "spellchecker/spellchecker_controller.h"
 
 namespace Spellchecker {
 
@@ -307,7 +307,7 @@ QChar::Script LocaleToScriptCode(const QString &locale) {
 
 } // namespace
 
-void SpellCheckerHelper::requestTextCheck(
+void Controller::requestTextCheck(
 	QTextDocument &doc,
 	MisspelledWords *misspelledWords,
 	MisspelledWords *correctWords) {
@@ -343,7 +343,7 @@ void SpellCheckerHelper::requestTextCheck(
 	}
 }
 
-bool SpellCheckerHelper::isWordSkippable(const QStringRef &word) {
+bool Controller::isWordSkippable(const QStringRef &word) {
 	static auto systemScripts = std::vector<QChar::Script>();
 	if (!systemScripts.size()) {
 		for (const auto& lang : QLocale::system().uiLanguages()) {
@@ -367,33 +367,33 @@ bool SpellCheckerHelper::isWordSkippable(const QStringRef &word) {
 	}) != word.end();
 }
 
-void SpellCheckerHelper::fillSuggestionList(const QString &wrongWord,
+void Controller::fillSuggestionList(const QString &wrongWord,
 		std::vector<QString> *optionalSuggestions) {
 	Platform::Spellchecker::FillSuggestionList(
 		wrongWord,
 		optionalSuggestions);
 }
 
-bool SpellCheckerHelper::isWordInDictionary(const QString &word) {
+bool Controller::isWordInDictionary(const QString &word) {
 	return Platform::Spellchecker::IsWordInDictionary(word);
 }
 
-bool SpellCheckerHelper::checkSingleWord(const QString &word) {
+bool Controller::checkSingleWord(const QString &word) {
 	if (!isWordSkippable(&word)) {
 		return Platform::Spellchecker::CheckSpelling(word);
 	}
 	return true;
 }
 
-void SpellCheckerHelper::addWord(const QString &word) {
+void Controller::addWord(const QString &word) {
 	Platform::Spellchecker::AddWord(word);
 }
 
-void SpellCheckerHelper::removeWord(const QString &word) {
+void Controller::removeWord(const QString &word) {
 	Platform::Spellchecker::RemoveWord(word);
 }
 
-void SpellCheckerHelper::ignoreWord(const QString &word) {
+void Controller::ignoreWord(const QString &word) {
 	Platform::Spellchecker::IgnoreWord(word);
 }
 
