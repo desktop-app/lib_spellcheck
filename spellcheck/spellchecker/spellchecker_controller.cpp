@@ -363,6 +363,7 @@ bool Controller::isWordSkippable(const QStringRef &word) {
 	}
 	return ranges::find_if(word, [&](QChar c) {
 		return (c.script() != wordScript)
+			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
 			&& (c.unicode() != '_'); // This is not a word separator.
 	}) != word.end();
 }
