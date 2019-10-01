@@ -204,12 +204,31 @@ void SpellingHighlighter::checkChangedText() {
 	};
 
 	const auto checkAndAddWordUnderCursos = [&] {
-		if (!checkSingleWord(wordUnderCursor)) {
-			ranges::insert(
-				_cachedRanges,
-				wordInCacheIt(),
-				std::move(wordUnderCursor));
+		const auto weak = Ui::MakeWeak(this);
+		auto w = document()->toPlainText().mid(
+			wordUnderCursor.first,
+			wordUnderCursor.second);
+		if (_spellCheckerController->isWordSkippable(&w)) {
+			return;
 		}
+		crl::async([=,
+			w = std::move(w),
+			wordUnderCursor = std::move(wordUnderCursor)]() mutable {
+			if (Platform::Spellchecker::CheckSpelling(std::move(w))) {
+				return;
+			}
+
+			crl::on_main(weak, [=,
+					wordUnderCursor = std::move(wordUnderCursor)]() mutable {
+				ranges::insert(
+					_cachedRanges,
+					ranges::find_if(_cachedRanges, [&](auto &&w) {
+						return w.first >= wordUnderCursor.first;
+					}),
+					std::move(wordUnderCursor));
+				rehighlight();
+			});
+		});
 	};
 
 	if (added > 0) {
