@@ -132,28 +132,33 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		return;
 	}
 
-	// Skip the all words to the left of the cursor.
-	auto &&filteredRanges = (
-		_cachedRanges
-	) | ranges::view::filter([&](const auto &range) {
-		return EndOfWord(range) > pos;
-	});
+	// Shift to the right all words after the cursor, when adding text.
+	if (added > 0) {
+		ranges::for_each(_cachedRanges, [&](auto &range) {
+			if (range.first >= pos + removed) {
+				range.first += added;
+			}
+		});
+	}
 
-	// Move the all words to the right of the cursor.
-	ranges::for_each(filteredRanges, [&](auto &range) {
-		if (!IsPositionInsideWord(pos, range)) {
-			range.first += added - removed;
-		}
-	});
-
+	// Remove all words that are in the selection.
+	// Remove the word that is under the cursor.
 	const auto wordUnderPos = getWordUnderPosition(pos);
-
 	_cachedRanges = (
 		_cachedRanges
 	) | ranges::view::filter([&](const auto &range) {
-		return !(IntersectsWordRanges(range, pos, removed)
-			|| IntersectsWordRanges(range, wordUnderPos));
+		return !(IntersectsWordRanges(range, wordUnderPos)
+			|| (removed > 0 && IntersectsWordRanges(range, pos, removed)));
 	}) | ranges::to_vector;
+
+	// Shift to the left all words after the cursor, when deleting text.
+	if (removed > 0) {
+		ranges::for_each(_cachedRanges, [&](auto &range) {
+			if (range.first > pos + removed) {
+				range.first -= removed;
+			}
+		});
+	}
 
 	rehighlight();
 
