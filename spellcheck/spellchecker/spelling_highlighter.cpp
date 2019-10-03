@@ -132,13 +132,17 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		return;
 	}
 
-	// Shift to the right all words after the cursor, when adding text.
-	if (added > 0) {
+	const auto shift = [&](auto chars) {
 		ranges::for_each(_cachedRanges, [&](auto &range) {
 			if (range.first >= pos + removed) {
-				range.first += added;
+				range.first += chars;
 			}
 		});
+	};
+
+	// Shift to the right all words after the cursor, when adding text.
+	if (added > 0) {
+		shift(added);
 	}
 
 	// Remove all words that are in the selection.
@@ -153,11 +157,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 
 	// Shift to the left all words after the cursor, when deleting text.
 	if (removed > 0) {
-		ranges::for_each(_cachedRanges, [&](auto &range) {
-			if (range.first > pos + removed) {
-				range.first -= removed;
-			}
-		});
+		shift(-removed);
 	}
 
 	rehighlight();
