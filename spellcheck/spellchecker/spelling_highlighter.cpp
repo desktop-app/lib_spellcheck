@@ -102,12 +102,10 @@ inline bool IntersectsWordRanges(
 
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
-	std::shared_ptr<Spellchecker::Controller> controller,
 	const std::initializer_list<const QString *> unspellcheckableTags,
 	rpl::producer<bool> enabled)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
-, _spellCheckerController(controller)
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _unspellcheckableTags(std::move(unspellcheckableTags))
 , _textEdit(textEdit) {
@@ -215,7 +213,7 @@ void SpellingHighlighter::checkChangedText() {
 		auto w = getDocumentText().mid(
 			wordUnderCursor.first,
 			wordUnderCursor.second);
-		if (_spellCheckerController->isWordSkippable(&w)) {
+		if (IsWordSkippable(&w)) {
 			return;
 		}
 		crl::async([=,
@@ -270,8 +268,9 @@ void SpellingHighlighter::checkChangedText() {
 MisspelledWords SpellingHighlighter::filterSkippableWords(
 	MisspelledWords &ranges) {
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !_spellCheckerController->isWordSkippable(
-			getDocumentText().midRef(range.first, range.second));
+		return !IsWordSkippable(getDocumentText().midRef(
+			range.first,
+			range.second));
 	}) | ranges::to_vector;
 }
 
@@ -314,7 +313,8 @@ void SpellingHighlighter::invokeCheckText(
 
 bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
 	const auto w = getDocumentText().mid(range.first, range.second);
-	return _spellCheckerController->checkSingleWord(std::move(w));
+	return IsWordSkippable(&w)
+		|| Platform::Spellchecker::CheckSpelling(std::move(w));
 }
 
 bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
@@ -400,6 +400,93 @@ QString SpellingHighlighter::getDocumentText() {
 	return document()
 		? document()->toPlainText()
 		: QString();
+}
+
+void SpellingHighlighter::addSpellcheckerActions(
+		not_null<QMenu*> menu,
+		QTextCursor cursorForPosition,
+		Fn<void()> showMenuCallback) {
+
+	const auto fillMenu = [=,
+		showMenuCallback = std::move(showMenuCallback),
+		menu = std::move(menu)](
+			const auto isCorrect,
+			const auto suggestions,
+			const auto newTextCursor) {
+		const auto word = newTextCursor.selectedText();
+		if (isCorrect) {
+			if (Platform::Spellchecker::IsWordInDictionary(word)) {
+				menu->addSeparator();
+				menu->addAction(
+					tr::lng_spellchecker_remove(tr::now),
+					[=] {
+						Platform::Spellchecker::RemoveWord(word);
+						checkCurrentText();
+				});
+			}
+			showMenuCallback();
+			return;
+		}
+
+		menu->addSeparator();
+
+		menu->addAction(
+			tr::lng_spellchecker_add(tr::now),
+			[=] {
+				Platform::Spellchecker::AddWord(word);
+				checkCurrentText();
+		});
+
+		menu->addAction(
+			tr::lng_spellchecker_ignore(tr::now),
+			[=] {
+				Platform::Spellchecker::IgnoreWord(word);
+				checkCurrentText();
+		});
+
+		if (suggestions.empty()) {
+			showMenuCallback();
+			return;
+		}
+
+		menu->addSeparator();
+		for (const auto &suggestion : suggestions) {
+			const auto replaceWord = [=] {
+				const auto oldTextCursor = _textEdit->textCursor();
+				_textEdit->setTextCursor(newTextCursor);
+				_textEdit->textCursor().insertText(suggestion);
+				_textEdit->setTextCursor(oldTextCursor);
+			};
+			menu->addAction(suggestion, std::move(replaceWord));
+		}
+		showMenuCallback();
+	};
+
+	const auto weak = Ui::MakeWeak(this);
+	crl::async([=,
+		newTextCursor = std::move(cursorForPosition),
+		fillMenu = std::move(fillMenu)]() mutable {
+
+		newTextCursor.select(QTextCursor::WordUnderCursor);
+		const auto word = newTextCursor.selectedText();
+
+		const auto isCorrect = IsWordSkippable(&word)
+			|| Platform::Spellchecker::CheckSpelling(word);
+		std::vector<QString> suggestions;
+		if (!isCorrect) {
+			Platform::Spellchecker::FillSuggestionList(word, &suggestions);
+		}
+
+		crl::on_main(weak, [=,
+				newTextCursor = std::move(newTextCursor),
+				suggestions = std::move(suggestions),
+				fillMenu = std::move(fillMenu)]() mutable {
+			fillMenu(
+				isCorrect,
+				std::move(suggestions),
+				std::move(newTextCursor));
+		});
+	});
 }
 
 } // namespace Spellchecker
