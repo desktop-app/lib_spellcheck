@@ -134,7 +134,7 @@ SpellingHighlighter::SpellingHighlighter(
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
-	if (document()->toPlainText().isEmpty()) {
+	if (getDocumentText().isEmpty()) {
 		_cachedRanges.clear();
 		return;
 	}
@@ -176,7 +176,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	}
 
 	const auto isLetterOrNumber = (added == 1
-		&& document()->toPlainText().midRef(
+		&& getDocumentText().midRef(
 			pos,
 			added).at(0).isLetterOrNumber());
 
@@ -212,7 +212,7 @@ void SpellingHighlighter::checkChangedText() {
 
 	const auto checkAndAddWordUnderCursos = [&] {
 		const auto weak = Ui::MakeWeak(this);
-		auto w = document()->toPlainText().mid(
+		auto w = getDocumentText().mid(
 			wordUnderCursor.first,
 			wordUnderCursor.second);
 		if (_spellCheckerController->isWordSkippable(&w)) {
@@ -251,7 +251,7 @@ void SpellingHighlighter::checkChangedText() {
 		const auto beginNewSelection = wordUnderCursor.first;
 		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
-		const auto addedText = document()->toPlainText().mid(
+		const auto addedText = getDocumentText().mid(
 			beginNewSelection,
 			endNewSelection - beginNewSelection);
 
@@ -270,13 +270,13 @@ void SpellingHighlighter::checkChangedText() {
 MisspelledWords SpellingHighlighter::filterSkippableWords(
 	MisspelledWords &ranges) {
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !_spellCheckerController->isWordSkippable(document()
-			->toPlainText().midRef(range.first, range.second));
+		return !_spellCheckerController->isWordSkippable(
+			getDocumentText().midRef(range.first, range.second));
 	}) | ranges::to_vector;
 }
 
 void SpellingHighlighter::checkCurrentText() {
-	if (const auto text = document()->toPlainText(); !text.isEmpty()) {
+	if (const auto text = getDocumentText(); !text.isEmpty()) {
 		invokeCheckText(text, [&](const MisspelledWords &ranges) {
 			_cachedRanges = std::move(ranges);
 		});
@@ -313,7 +313,7 @@ void SpellingHighlighter::invokeCheckText(
 }
 
 bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
-	const auto w = document()->toPlainText().mid(range.first, range.second);
+	const auto w = getDocumentText().mid(range.first, range.second);
 	return _spellCheckerController->checkSingleWord(std::move(w));
 }
 
@@ -394,6 +394,12 @@ void SpellingHighlighter::setEnabled(bool enabled) {
 		_cachedRanges.clear();
 	}
 	rehighlight();
+}
+
+QString SpellingHighlighter::getDocumentText() {
+	return document()
+		? document()->toPlainText()
+		: QString();
 }
 
 } // namespace Spellchecker

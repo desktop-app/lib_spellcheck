@@ -56,6 +56,7 @@ private:
 
 	bool isTagUnspellcheckable(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
+	QString getDocumentText();
 
 	QTextCharFormat misspelledFormat;
 
