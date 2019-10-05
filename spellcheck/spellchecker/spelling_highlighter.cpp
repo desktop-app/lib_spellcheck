@@ -103,12 +103,12 @@ inline bool IntersectsWordRanges(
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
 	std::shared_ptr<Spellchecker::Controller> controller,
-	UncheckableCallback callback)
+	const std::initializer_list<const QString *> unspellcheckableTags)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _spellCheckerController(controller)
-, _unspellcheckableCallback(std::move(callback))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
+, _unspellcheckableTags(std::move(unspellcheckableTags))
 , _textEdit(textEdit) {
 
 	_textEdit->installEventFilter(this);
@@ -310,10 +310,15 @@ bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
 	return _spellCheckerController->checkSingleWord(std::move(w));
 }
 
-QString SpellingHighlighter::getTagFromRange(int begin, int length) {
+bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
 	_cursor.setPosition(begin);
 	_cursor.setPosition(begin + length, QTextCursor::KeepAnchor);
-	return _cursor.charFormat().property(kTagProperty).toString();
+	const auto tag = _cursor.charFormat().property(kTagProperty).toString();
+
+	return (!tag.isEmpty())
+		&& ranges::find_if(_unspellcheckableTags, [&](const QString *t) {
+			return t == tag;
+		}) != end(_unspellcheckableTags);
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
@@ -340,7 +345,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 		const auto l = (endOfBlock < position + length)
 			? endOfBlock - position
 			: length;
-		if (_unspellcheckableCallback(getTagFromRange(position, l))) {
+		if (isTagUnspellcheckable(position, l)) {
 			continue;
 		}
 		setFormat(position - block.position(), length, misspelledFormat);

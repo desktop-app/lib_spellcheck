@@ -28,7 +28,7 @@ public:
 	SpellingHighlighter(
 		QTextEdit *textEdit,
 		std::shared_ptr<Spellchecker::Controller> controller,
-		UncheckableCallback callback);
+		const std::initializer_list<const QString *> unspellcheckableTags);
 	~SpellingHighlighter() override {
 	}
 
@@ -51,7 +51,7 @@ private:
 	bool checkSingleWord(const MisspelledWord &range);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
 
-	QString getTagFromRange(int begin, int length);
+	bool isTagUnspellcheckable(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
 
 	QTextCharFormat misspelledFormat;
@@ -68,6 +68,8 @@ private:
 	int _lastPosition = 0;
 
 	base::Timer _coldSpellcheckingTimer;
+
+	const std::initializer_list<const QString *> _unspellcheckableTags;
 
 	QTextEdit *_textEdit;
 
