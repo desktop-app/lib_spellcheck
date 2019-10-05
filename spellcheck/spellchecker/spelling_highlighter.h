@@ -28,18 +28,21 @@ public:
 	SpellingHighlighter(
 		QTextEdit *textEdit,
 		std::shared_ptr<Spellchecker::Controller> controller,
-		const std::initializer_list<const QString *> unspellcheckableTags);
+		const std::initializer_list<const QString *> unspellcheckableTags,
+		rpl::producer<bool> enabled);
 	~SpellingHighlighter() override {
 	}
 
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
+	bool enabled();
 
 protected:
 	void highlightBlock(const QString &text) override;
 	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
+	void setEnabled(bool enabled);
 	void checkText(const QString &text);
 
 	void invokeCheckText(
@@ -66,12 +69,15 @@ private:
 	int _addedSymbols = 0;
 	int _removedSymbols = 0;
 	int _lastPosition = 0;
+	bool _enabled = true;
 
 	base::Timer _coldSpellcheckingTimer;
 
 	const std::initializer_list<const QString *> _unspellcheckableTags;
 
 	QTextEdit *_textEdit;
+
+	rpl::lifetime _lifetime;
 
 };
 

@@ -103,7 +103,8 @@ inline bool IntersectsWordRanges(
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
 	std::shared_ptr<Spellchecker::Controller> controller,
-	const std::initializer_list<const QString *> unspellcheckableTags)
+	const std::initializer_list<const QString *> unspellcheckableTags,
+	rpl::producer<bool> enabled)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _spellCheckerController(controller)
@@ -122,6 +123,12 @@ SpellingHighlighter::SpellingHighlighter(
 	misspelledFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 #endif
 	misspelledFormat.setUnderlineColor(st::spellUnderline->c);
+
+	std::move(
+		enabled
+	) | rpl::start_with_next([=](bool value) {
+		setEnabled(value);
+	}, _lifetime);
 
 	checkCurrentText();
 }
@@ -329,7 +336,7 @@ MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
 }
 
 void SpellingHighlighter::highlightBlock(const QString &text) {
-	if (_cachedRanges.empty()) {
+	if (_cachedRanges.empty() || !_enabled) {
 		return;
 	}
 	const auto block = currentBlock();
@@ -373,6 +380,20 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		}
 	}
 	return false;
+}
+
+bool SpellingHighlighter::enabled() {
+	return _enabled;
+}
+
+void SpellingHighlighter::setEnabled(bool enabled) {
+	_enabled = enabled;
+	if (_enabled) {
+		checkCurrentText();
+	} else {
+		_cachedRanges.clear();
+	}
+	rehighlight();
 }
 
 } // namespace Spellchecker
