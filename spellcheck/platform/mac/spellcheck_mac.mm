@@ -34,23 +34,25 @@ NSSpellChecker *SharedSpellChecker() {
 namespace Platform {
 namespace Spellchecker {
 
+// Known Issue: Despite the explicitly defined parameter,
+// the correctness of a single word depends on the rest of the text.
+// For example, "testt testtttyy" - this string will be marked as correct.
+// But at the same time "testtttyy" will be marked as misspelled word.
+
 bool CheckSpelling(const QString &wordToCheck) {
-	// -[NSSpellChecker checkSpellingOfString] returns an NSRange that
-	// we can look at to determine if a word is misspelled.
-	NSRange spellRange = {0,0};
-
-	// Check the spelling, starting at the beginning of the word.
-	spellRange = [SharedSpellChecker()
-					  checkSpellingOfString:Q2NSString(wordToCheck)
-					  startingAt:0
-					  language:nil
-					  wrap:false
-					  inSpellDocumentWithTag:0
-					  wordCount:nil];
-
+	const auto wordLength = wordToCheck.length();
+	NSArray<NSTextCheckingResult *> *spellRanges =
+		[SharedSpellChecker()
+			checkString:Q2NSString(std::move(wordToCheck))
+			range:NSMakeRange(0, wordLength)
+			types:NSTextCheckingTypeSpelling
+			options:nil
+			inSpellDocumentWithTag:0
+			orthography:nil
+			wordCount:nil];
 	// If the length of the misspelled word == 0,
 	// then there is no misspelled word.
-	return (spellRange.length == 0);
+	return (spellRanges.count == 0);
 }
 
 
