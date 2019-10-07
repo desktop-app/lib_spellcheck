@@ -153,9 +153,20 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	// Remove all words that are in the selection.
 	// Remove the word that is under the cursor.
 	const auto wordUnderPos = getWordUnderPosition(pos);
+
+	// If the cursor is between spaces,
+	// QTextCursor::WordUnderCursor highlights the word on the left
+	// even if the word is not under the cursor.
+	// Example: "super  |  test", where | is the cursor position.
+	// In this example QTextCursor::WordUnderCursor will select "super".
+	const auto isPosNotInWord = pos > EndOfWord(wordUnderPos);
+
 	_cachedRanges = (
 		_cachedRanges
 	) | ranges::view::filter([&](const auto &range) {
+		if (IntersectsWordRanges(range, wordUnderPos)) {
+			return isPosNotInWord;
+		}
 		return !(IntersectsWordRanges(range, wordUnderPos)
 			|| (removed > 0 && IntersectsWordRanges(range, pos, removed)));
 	}) | ranges::to_vector;
