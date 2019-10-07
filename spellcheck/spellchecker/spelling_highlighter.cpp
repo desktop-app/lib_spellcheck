@@ -180,7 +180,11 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 
 	_addedSymbols += added;
 	_removedSymbols += removed;
-	if (!_lastPosition) {
+
+	// The typing of text character by character should produce
+	// the same _lastPosition, _addedSymbols and _removedSymbols values
+	// as removing and pasting several characters at a time.
+	if (!_lastPosition || (removed == 1)) {
 		_lastPosition = pos;
 	}
 
