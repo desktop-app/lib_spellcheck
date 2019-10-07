@@ -188,17 +188,26 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		_lastPosition = pos;
 	}
 
-	const auto isLetterOrNumber = (added == 1
-		&& getDocumentText().midRef(
-			pos,
-			added).at(0).isLetterOrNumber());
+	const auto addedSymbol = (added == 1)
+		? getDocumentText().midRef(pos, added).at(0)
+		: QChar();
 
-	if ((removed == 1) || isLetterOrNumber) {
+	if ((removed == 1) || addedSymbol.isLetterOrNumber()) {
 		if (_coldSpellcheckingTimer.isActive()) {
 			_coldSpellcheckingTimer.cancel();
 		}
 		_coldSpellcheckingTimer.callOnce(kColdSpellcheckingTimeout);
 	} else {
+		// We forcefully increase the range of check
+		// when inserting a non-char. This can help when the user inserts
+		// a non-char in the middle of a word.
+		if (!(addedSymbol.isNull()
+			|| addedSymbol.isSpace()
+			|| addedSymbol.isLetterOrNumber())) {
+			_lastPosition--;
+			_addedSymbols++;
+		}
+
 		checkChangedText();
 	}
 }
