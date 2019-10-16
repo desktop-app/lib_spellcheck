@@ -1,0 +1,11 @@
+<(src_loc)/spellcheck/platform/platform_spellcheck.h
+<(src_loc)/spellcheck/platform/linux/spellcheck_linux.cpp
+<(src_loc)/spellcheck/platform/linux/spellcheck_linux.h
+<(src_loc)/spellcheck/platform/mac/spellcheck_mac.h
+<(src_loc)/spellcheck/platform/mac/spellcheck_mac.mm
+<(src_loc)/spellcheck/platform/win/spellcheck_win.cpp
+<(src_loc)/spellcheck/platform/win/spellcheck_win.h
+<(src_loc)/spellcheck/spellchecker/spellchecker_locale_script.cpp
+<(src_loc)/spellcheck/spellchecker/spellchecker_locale_script.h
+<(src_loc)/spellcheck/spellchecker/spelling_highlighter.cpp
+<(src_loc)/spellcheck/spellchecker/spelling_highlighter.h
