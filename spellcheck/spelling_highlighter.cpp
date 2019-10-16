@@ -5,10 +5,10 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 
-#include "spellcheck/spellchecker/spelling_highlighter.h"
+#include "spellcheck/spelling_highlighter.h"
 
 #include "lang/lang_keys.h"
-#include "spellcheck/spellchecker/spellchecker_locale_script.h"
+#include "spellcheck/spellchecker_locale_script.h"
 #include "styles/palette.h"
 #include "ui/ui_utility.h"
 
