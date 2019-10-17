@@ -394,11 +394,32 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 }
 
 bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
-	if (!_textEdit) {
+	if (!_textEdit || !_enabled) {
 		return false;
 	}
-	if (e->type() == QEvent::KeyPress) {
-		const auto *k = static_cast<QKeyEvent *>(e);
+	if (e->type() == QEvent::ContextMenu) {
+		const auto c = static_cast<QContextMenuEvent *>(e);
+		const auto menu = _textEdit->createStandardContextMenu();
+		if (!menu || !c) {
+			return false;
+		}
+		// Copy of QContextMenuEvent.
+		const auto result = std::make_pair(
+			menu,
+			QContextMenuEvent(
+				c->reason(),
+				c->pos(),
+				c->globalPos()));
+		const auto showMenu = [=, result = std::move(result)] {
+			_contextMenuCreated.fire(std::move(result));
+		};
+		addSpellcheckerActions(
+			std::move(menu),
+			_textEdit->cursorForPosition(c->pos()),
+			std::move(showMenu));
+		return true;
+	} else if (e->type() == QEvent::KeyPress) {
+		const auto k = static_cast<QKeyEvent *>(e);
 
 		if (ranges::find(kKeysToCheck, k->key()) != kKeysToCheck.end()) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {

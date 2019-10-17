@@ -19,6 +19,7 @@ namespace Spellchecker {
 using MisspelledWords = Platform::Spellchecker::MisspelledWords;
 using MisspelledWord = Platform::Spellchecker::MisspelledWord;
 using UncheckableCallback = Fn<bool(const QString &tag)>;
+using ContextMenuPair = std::pair<not_null<QMenu*>, QContextMenuEvent>;
 
 class SpellingHighlighter final : public QSyntaxHighlighter {
 	Q_OBJECT
@@ -35,6 +36,10 @@ public:
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
 	bool enabled();
+
+	auto contextMenuCreated() {
+		return _contextMenuCreated.events();
+	}
 
 	// Windows system spellchecker forces us to perform spell operations
 	// In another thread, so the word check and getting a list of suggestions
@@ -86,6 +91,8 @@ private:
 	QTextEdit *_textEdit;
 
 	rpl::lifetime _lifetime;
+
+	rpl::event_stream<ContextMenuPair> _contextMenuCreated;
 
 };
 
