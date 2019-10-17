@@ -103,7 +103,8 @@ inline bool IntersectsWordRanges(
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
 	const std::initializer_list<const QString *> unspellcheckableTags,
-	rpl::producer<bool> enabled)
+	rpl::producer<bool> enabled,
+	rpl::producer<std::tuple<int, int, int>> documentChanges)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
@@ -121,6 +122,13 @@ SpellingHighlighter::SpellingHighlighter(
 	misspelledFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 #endif
 	misspelledFormat.setUnderlineColor(st::spellUnderline->c);
+
+	std::move(
+		documentChanges
+	) | rpl::start_with_next([=](const auto &value) {
+		const auto &[pos, removed, added] = value;
+		contentsChange(pos, removed, added);
+	}, _lifetime);
 
 	std::move(
 		enabled
