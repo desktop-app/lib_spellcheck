@@ -7,7 +7,7 @@
 
 #include "spellcheck/spelling_highlighter.h"
 
-#include "spellcheck/spellchecker_locale_script.h"
+#include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
 #include "ui/ui_utility.h"
 

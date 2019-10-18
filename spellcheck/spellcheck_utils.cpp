@@ -4,7 +4,7 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "spellcheck/spellchecker_locale_script.h"
+#include "spellcheck/spellcheck_utils.h"
 
 #include <QtCore/QLocale>
 #include <QtCore/QStringList>
