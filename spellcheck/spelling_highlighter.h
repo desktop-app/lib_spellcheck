@@ -7,6 +7,7 @@
 
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
+#include "spellcheck/spellcheck_types.h"
 #include "ui/ph.h"
 
 #include <QtGui/QSyntaxHighlighter>
@@ -35,8 +36,6 @@ inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 
 //////
 
-using MisspelledWords = Platform::Spellchecker::MisspelledWords;
-using MisspelledWord = Platform::Spellchecker::MisspelledWord;
 using ContextMenuPair = std::pair<not_null<QMenu*>, QContextMenuEvent>;
 
 class SpellingHighlighter final : public QSyntaxHighlighter {

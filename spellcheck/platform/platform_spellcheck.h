@@ -6,10 +6,9 @@
 //
 #pragma once
 
-namespace Platform::Spellchecker {
+#include "spellcheck/spellcheck_types.h"
 
-using MisspelledWord = std::pair<int, int>;
-using MisspelledWords = std::vector<MisspelledWord>;
+namespace Platform::Spellchecker {
 
 constexpr auto kMaxSuggestions = 5;
 

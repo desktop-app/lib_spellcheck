@@ -7,5 +7,6 @@
 <(src_loc)/spellcheck/platform/win/spellcheck_win.h
 <(src_loc)/spellcheck/spellchecker_locale_script.cpp
 <(src_loc)/spellcheck/spellchecker_locale_script.h
+<(src_loc)/spellcheck/spellcheck_types.h
 <(src_loc)/spellcheck/spelling_highlighter.cpp
 <(src_loc)/spellcheck/spelling_highlighter.h
