@@ -8,6 +8,7 @@
 
 #include <QtCore/QLocale>
 #include <QtCore/QStringList>
+#include <QTextBoundaryFinder>
 
 namespace Spellchecker {
 namespace {
@@ -212,6 +213,52 @@ bool IsWordSkippable(const QStringRef &word) {
 			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
 			&& (c.unicode() != '_'); // This is not a word separator.
 	}) != word.end();
+}
+
+MisspelledWords RangesFromText(
+	const QString &text,
+	Fn<bool(const QString &word)> filterCallback) {
+	MisspelledWords ranges;
+
+	if (text.isEmpty()) {
+		return ranges;
+	}
+
+	auto finder = QTextBoundaryFinder(QTextBoundaryFinder::Word, text);
+
+	const auto isEnd = [&] {
+		return (finder.toNextBoundary() == -1);
+	};
+
+	while (finder.position() < text.length()) {
+		if (!(finder.boundaryReasons().testFlag(
+				QTextBoundaryFinder::StartOfItem))) {
+			if (isEnd()) {
+				break;
+			}
+			continue;
+		}
+
+		const auto start = finder.position();
+		const auto end = finder.toNextBoundary();
+		if (end == -1) {
+			break;
+		}
+		const auto length = end - start;
+		if (length < 1) {
+			continue;
+		}
+		ranges.push_back(std::make_pair(start, length));
+
+		if (isEnd()) {
+			break;
+		}
+	}
+	return ranges::view::all(
+		ranges
+	) | ranges::view::filter([&](const auto &range) {
+		return !filterCallback(text.mid(range.first, range.second));
+	}) | ranges::to_vector;
 }
 
 } // namespace Spellchecker

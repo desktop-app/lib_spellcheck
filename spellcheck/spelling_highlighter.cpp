@@ -11,8 +11,6 @@
 #include "styles/palette.h"
 #include "ui/ui_utility.h"
 
-#include <QTextBoundaryFinder>
-
 namespace ph {
 
 phrase lng_spellchecker_add = "Add to Dictionary";
@@ -42,46 +40,6 @@ const auto kKeysToCheck = {
 
 inline int EndOfWord(const MisspelledWord &range) {
 	return range.first + range.second;
-}
-
-MisspelledWords GetRanges(const QString &text) {
-	MisspelledWords ranges;
-
-	if (text.isEmpty()) {
-		return ranges;
-	}
-
-	auto finder = QTextBoundaryFinder(QTextBoundaryFinder::Word, text);
-
-	const auto isEnd = [&] {
-		return (finder.toNextBoundary() == -1);
-	};
-
-	while (finder.position() < text.length()) {
-		if (!(finder.boundaryReasons().testFlag(
-				QTextBoundaryFinder::StartOfItem))) {
-			if (isEnd()) {
-				break;
-			}
-			continue;
-		}
-
-		const auto start = finder.position();
-		const auto end = finder.toNextBoundary();
-		if (end == -1) {
-			break;
-		}
-		const auto length = end - start;
-		if (length < 1) {
-			continue;
-		}
-		ranges.push_back(std::make_pair(start, length));
-
-		if (isEnd()) {
-			break;
-		}
-	}
-	return ranges;
 }
 
 inline bool IntersectsWordRanges(

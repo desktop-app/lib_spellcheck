@@ -6,8 +6,14 @@
 //
 #pragma once
 
+#include "spellcheck/spellcheck_types.h"
+
 namespace Spellchecker {
 
 bool IsWordSkippable(const QStringRef &word);
+
+MisspelledWords RangesFromText(
+	const QString &text,
+	Fn<bool(const QString &word)> filterCallback);
 
 } // namespace Spellchecker
