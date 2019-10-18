@@ -7,6 +7,7 @@
 
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
+#include "ui/ph.h"
 
 #include <QtGui/QSyntaxHighlighter>
 #include <QtWidgets/QMenu>
@@ -14,7 +15,25 @@
 
 #include <rpl/event_stream.h>
 
+namespace ph {
+
+extern phrase lng_spellchecker_add;
+extern phrase lng_spellchecker_remove;
+extern phrase lng_spellchecker_ignore;
+
+} // namespace ph
+
 namespace Spellchecker {
+
+////// Phrases.
+
+inline constexpr auto kPhrasesCount = 3;
+
+inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
+	ph::details::set_values(std::move(data));
+}
+
+//////
 
 using MisspelledWords = Platform::Spellchecker::MisspelledWords;
 using MisspelledWord = Platform::Spellchecker::MisspelledWord;

@@ -7,12 +7,19 @@
 
 #include "spellcheck/spelling_highlighter.h"
 
-#include "lang/lang_keys.h"
 #include "spellcheck/spellchecker_locale_script.h"
 #include "styles/palette.h"
 #include "ui/ui_utility.h"
 
 #include <QTextBoundaryFinder>
+
+namespace ph {
+
+phrase lng_spellchecker_add = "Add to Dictionary";
+phrase lng_spellchecker_remove = "Remove from Dictionary";
+phrase lng_spellchecker_ignore = "Ignore word";
+
+} // namespace ph
 
 namespace Spellchecker {
 
@@ -471,7 +478,7 @@ void SpellingHighlighter::addSpellcheckerActions(
 			if (Platform::Spellchecker::IsWordInDictionary(word)) {
 				menu->addSeparator();
 				menu->addAction(
-					tr::lng_spellchecker_remove(tr::now),
+					ph::lng_spellchecker_remove(ph::now),
 					[=] {
 						Platform::Spellchecker::RemoveWord(word);
 						checkCurrentText();
@@ -484,14 +491,14 @@ void SpellingHighlighter::addSpellcheckerActions(
 		menu->addSeparator();
 
 		menu->addAction(
-			tr::lng_spellchecker_add(tr::now),
+			ph::lng_spellchecker_add(ph::now),
 			[=] {
 				Platform::Spellchecker::AddWord(word);
 				checkCurrentText();
 		});
 
 		menu->addAction(
-			tr::lng_spellchecker_ignore(tr::now),
+			ph::lng_spellchecker_ignore(ph::now),
 			[=] {
 				Platform::Spellchecker::IgnoreWord(word);
 				checkCurrentText();

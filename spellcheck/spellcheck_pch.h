@@ -17,5 +17,8 @@
 #include <crl/crl_on_main.h>
 #include <crl/crl_time.h>
 
+#include <rpl/variable.h>
+#include <rpl/map.h>
+
 #include "base/algorithm.h"
 #include "base/basic_types.h"
