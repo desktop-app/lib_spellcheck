@@ -31,8 +31,7 @@ NSSpellChecker *SharedSpellChecker() {
 
 } // namespace
 
-namespace Platform {
-namespace Spellchecker {
+namespace Platform::Spellchecker {
 
 // Known Issue: Despite the explicitly defined parameter,
 // the correctness of a single word depends on the rest of the text.
@@ -85,15 +84,16 @@ void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 
-	NSString *NSWrongWord = Q2NSString(wrongWord);
-	NSSpellChecker *checker = SharedSpellChecker();
 	NSRange wordRange = NSMakeRange(0, wrongWord.length());
-	NSArray *guesses = [checker guessesForWordRange:wordRange
-		inString:NSWrongWord
+	NSArray *guesses = [SharedSpellChecker() guessesForWordRange:wordRange
+		inString:Q2NSString(wrongWord)
 		language:nil
 		inSpellDocumentWithTag:0];
 
-	int i = 0;
+	auto i = 0;
+	optionalSuggestions->reserve(guesses.count > kMaxSuggestions
+		? kMaxSuggestions
+		: guesses.count);
 	for (NSString *guess in guesses) {
 		optionalSuggestions->push_back(NS2QString(guess));
 		if (++i >= kMaxSuggestions) {
@@ -119,5 +119,4 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 	return [SharedSpellChecker() hasLearnedWord:Q2NSString(wordToCheck)];
 }
 
-} // namespace Spellchecker
-} // namespace Platform
+} // namespace Platform::Spellchecker

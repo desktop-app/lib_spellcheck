@@ -6,8 +6,7 @@
 //
 #pragma once
 
-namespace Platform {
-namespace Spellchecker {
+namespace Platform::Spellchecker {
 
 using MisspelledWord = std::pair<int, int>;
 using MisspelledWords = std::vector<MisspelledWord>;
@@ -29,8 +28,7 @@ void CheckSpellingText(
 	const QString &text,
 	MisspelledWords *misspelledWordRanges);
 
-} // namespace Spellchecker
-} // namespace Platform
+} // namespace Platform::Spellchecker
 
 // Platform dependent implementations.
 // TODO: We should use Hunspell for Win 7 and Linux.
@@ -41,8 +39,7 @@ void CheckSpellingText(
 #include "spellcheck/platform/win/spellcheck_win.h"
 #elif defined Q_OS_WINRT || defined Q_OS_LINUX // Q_OS_MAC || Q_OS_WIN
 
-namespace Platform {
-namespace Spellchecker {
+namespace Platform::Spellchecker {
 
 inline bool CheckSpelling(const QString &wordToCheck) {
 	return true;
@@ -75,7 +72,6 @@ inline void CheckSpellingText(
 	MisspelledWords *misspelledWordRanges) {
 }
 
-} // namespace Spellchecker
-} // namespace Platform
+} // namespace Platform::Spellchecker
 
 #endif // Q_OS_MAC || Q_OS_WIN || Q_OS_WINRT || Q_OS_LINUX

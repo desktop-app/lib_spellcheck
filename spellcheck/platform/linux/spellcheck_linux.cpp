@@ -6,8 +6,6 @@
 //
 #include "spellcheck/platform/linux/spellcheck_linux.h"
 
-namespace Platform {
-namespace Spellchecker {
+namespace Platform::Spellchecker {
 
-} // namespace Spellchecker
-} // namespace Platform
+} // namespace Platform::Spellchecker

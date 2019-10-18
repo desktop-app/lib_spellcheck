@@ -124,11 +124,11 @@ SpellingHighlighter::SpellingHighlighter(
 	_cachedRanges = MisspelledWords();
 
 #ifdef Q_OS_MAC
-	misspelledFormat.setUnderlineStyle(QTextCharFormat::DotLine);
+	_misspelledFormat.setUnderlineStyle(QTextCharFormat::DotLine);
 #else
-	misspelledFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+	_misspelledFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 #endif
-	misspelledFormat.setUnderlineColor(st::spellUnderline->c);
+	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 
 	std::move(
 		documentChanges
@@ -204,7 +204,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	}
 
 	const auto addedSymbol = (added == 1)
-		? getDocumentText().midRef(pos, added).at(0)
+		? getDocumentText().midRef(pos, added).front()
 		: QChar();
 
 	if ((removed == 1) || addedSymbol.isLetterOrNumber()) {
@@ -394,7 +394,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 		if (isTagUnspellcheckable(position, l)) {
 			continue;
 		}
-		setFormat(position - block.position(), length, misspelledFormat);
+		setFormat(position - block.position(), length, _misspelledFormat);
 	}
 
 	setCurrentBlockState(0);

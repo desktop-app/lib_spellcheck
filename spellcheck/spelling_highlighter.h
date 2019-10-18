@@ -37,7 +37,6 @@ inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 
 using MisspelledWords = Platform::Spellchecker::MisspelledWords;
 using MisspelledWord = Platform::Spellchecker::MisspelledWord;
-using UncheckableCallback = Fn<bool(const QString &tag)>;
 using ContextMenuPair = std::pair<not_null<QMenu*>, QContextMenuEvent>;
 
 class SpellingHighlighter final : public QSyntaxHighlighter {
@@ -90,11 +89,8 @@ private:
 	MisspelledWord getWordUnderPosition(int position);
 	QString getDocumentText();
 
-	QTextCharFormat misspelledFormat;
-
+	QTextCharFormat _misspelledFormat;
 	QTextCursor _cursor;
-
-	UncheckableCallback _unspellcheckableCallback;
 
 	MisspelledWords _cachedRanges;
 
