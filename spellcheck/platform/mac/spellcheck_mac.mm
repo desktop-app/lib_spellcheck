@@ -7,6 +7,7 @@
 #include "spellcheck/platform/mac/spellcheck_mac.h"
 
 #include "base/platform/mac/base_utilities_mac.h"
+#include "spellcheck/spellcheck_utils.h"
 
 #import <QuartzCore/QuartzCore.h>
 
@@ -33,10 +34,6 @@ NSSpellChecker *SharedSpellChecker() {
 
 namespace Platform::Spellchecker {
 
-// Known Issue: Despite the explicitly defined parameter,
-// the correctness of a single word depends on the rest of the text.
-// For example, "testt testtttyy" - this string will be marked as correct.
-// But at the same time "testtttyy" will be marked as misspelled word.
 
 bool CheckSpelling(const QString &wordToCheck) {
 	const auto wordLength = wordToCheck.length();
@@ -59,6 +56,9 @@ bool CheckSpelling(const QString &wordToCheck) {
 void CheckSpellingText(
 	const QString &text,
 	MisspelledWords *misspelledWordRanges) {
+// Probably never gonna be defined.
+#ifdef SPELLCHECKER_MAC_AUTO_CHECK_TEXT
+
 	NSArray<NSTextCheckingResult *> *spellRanges =
 		[SharedSpellChecker()
 			checkString:Q2NSString(text)
@@ -78,6 +78,28 @@ void CheckSpellingText(
 			result.range.location,
 			result.range.length});
 	}
+
+#else
+// Known Issue: Despite the explicitly defined parameter,
+// the correctness of a single word depends on the rest of the text.
+// For example, "testt testtttyy" - this string will be marked as correct.
+// But at the same time "testtttyy" will be marked as misspelled word.
+
+// So we have to manually split the text into words and check them separately.
+	const auto words = ::Spellchecker::RangesFromText(text, [&](auto &word) {
+		return CheckSpelling(std::move(word));
+	});
+
+	if (words.empty()) {
+		return;
+	}
+
+	misspelledWordRanges->insert(
+		misspelledWordRanges->end(),
+		words.begin(),
+		words.end());
+
+#endif
 }
 
 void FillSuggestionList(
