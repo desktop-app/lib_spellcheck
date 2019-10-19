@@ -8,4 +8,31 @@
 
 namespace Platform::Spellchecker {
 
+bool CheckSpelling(const QString &wordToCheck) {
+	return true;
+}
+
+void FillSuggestionList(
+	const QString &wrongWord,
+	std::vector<QString> *optionalSuggestions) {
+}
+
+void AddWord(const QString &word) {
+}
+
+void RemoveWord(const QString &word) {
+}
+
+void IgnoreWord(const QString &word) {
+}
+
+bool IsWordInDictionary(const QString &wordToCheck) {
+	return false;
+}
+
+void CheckSpellingText(
+	const QString &text,
+	MisspelledWords *misspelledWordRanges) {
+}
+
 } // namespace Platform::Spellchecker
