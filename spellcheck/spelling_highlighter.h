@@ -44,7 +44,6 @@ class SpellingHighlighter final : public QSyntaxHighlighter {
 public:
 	SpellingHighlighter(
 		QTextEdit *textEdit,
-		const std::initializer_list<const QString *> unspellcheckableTags,
 		rpl::producer<bool> enabled,
 		rpl::producer<std::tuple<int, int, int>> documentChanges);
 	~SpellingHighlighter() override {
@@ -99,8 +98,6 @@ private:
 	bool _enabled = true;
 
 	base::Timer _coldSpellcheckingTimer;
-
-	const std::initializer_list<const QString *> _unspellcheckableTags;
 
 	QTextEdit *_textEdit;
 

@@ -9,6 +9,7 @@
 
 #include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
+#include "ui/widgets/input_fields.h"
 #include "ui/ui_utility.h"
 
 namespace ph {
@@ -24,6 +25,11 @@ namespace Spellchecker {
 namespace {
 
 constexpr auto kTagProperty = QTextFormat::UserProperty + 4;
+const auto kUnspellcheckableTags = {
+	&Ui::InputField::kTagCode,
+	&Ui::InputField::kTagPre,
+	&Ui::InputField::kTagUnderline
+};
 
 constexpr auto kColdSpellcheckingTimeout = crl::time(1000);
 
@@ -67,13 +73,11 @@ inline bool IntersectsWordRanges(
 
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
-	const std::initializer_list<const QString *> unspellcheckableTags,
 	rpl::producer<bool> enabled,
 	rpl::producer<std::tuple<int, int, int>> documentChanges)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
-, _unspellcheckableTags(std::move(unspellcheckableTags))
 , _textEdit(textEdit) {
 
 	_textEdit->installEventFilter(this);
@@ -320,9 +324,9 @@ bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
 	const auto tag = _cursor.charFormat().property(kTagProperty).toString();
 
 	return (!tag.isEmpty())
-		&& ranges::find_if(_unspellcheckableTags, [&](const QString *t) {
+		&& ranges::find_if(kUnspellcheckableTags, [&](const auto *t) {
 			return t == tag;
-		}) != end(_unspellcheckableTags);
+		}) != end(kUnspellcheckableTags);
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
