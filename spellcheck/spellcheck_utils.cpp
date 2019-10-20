@@ -179,6 +179,8 @@ constexpr SubtagScript kLocaleScriptList[] = {
 	// {"zh-tw", USCRIPT_TRADITIONAL_HAN},
 };
 
+} // namespace
+
 QChar::Script LocaleToScriptCode(const QString &locale) {
 	for (const auto &kv : kLocaleScriptList) {
 		if (locale.split('-')[0] == kv.subtag) {
@@ -188,7 +190,16 @@ QChar::Script LocaleToScriptCode(const QString &locale) {
 	return QChar::Script_Common;
 }
 
-} // namespace
+QChar::Script WordScript(const QStringRef &word) {
+	// Find the first letter.
+	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
+		return c.isLetter();
+	});
+	if (firstLetter == word.end()) {
+		return QChar::Script_Common;
+	}
+	return firstLetter->script();
+}
 
 bool IsWordSkippable(const QStringRef &word) {
 	static auto systemScripts = std::vector<QChar::Script>();
@@ -197,14 +208,7 @@ bool IsWordSkippable(const QStringRef &word) {
 			systemScripts.push_back(LocaleToScriptCode(lang));
 		}
 	}
-	// Find the first letter.
-	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
-		return c.isLetter();
-	});
-	if (firstLetter == word.end()) {
-		return true;
-	}
-	const auto wordScript = firstLetter->script();
+	const auto wordScript = WordScript(word);
 	if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
 		return true;
 	}
