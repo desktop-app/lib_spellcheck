@@ -37,40 +37,5 @@ void CheckSpellingText(
 #elif defined Q_OS_WIN // Q_OS_MAC
 #include "spellcheck/platform/win/spellcheck_win.h"
 #elif defined Q_OS_WINRT || defined Q_OS_LINUX // Q_OS_MAC || Q_OS_WIN
-
-namespace Platform::Spellchecker {
-
-inline bool CheckSpelling(const QString &wordToCheck) {
-	return true;
-}
-
-inline void FillSuggestionList(
-	const QString &wrongWord,
-	std::vector<QString> *optionalSuggestions) {
-	// TODO.
-}
-
-inline void AddWord(const QString &word) {
-	// TODO.
-}
-
-inline void RemoveWord(const QString &word) {
-	// TODO.
-}
-
-inline void IgnoreWord(const QString &word) {
-	// TODO.
-}
-
-inline bool IsWordInDictionary(const QString &wordToCheck) {
-	return false;
-}
-
-inline void CheckSpellingText(
-	const QString &text,
-	MisspelledWords *misspelledWordRanges) {
-}
-
-} // namespace Platform::Spellchecker
-
+#include "spellcheck/platform/linux/spellcheck_linux.h"
 #endif // Q_OS_MAC || Q_OS_WIN || Q_OS_WINRT || Q_OS_LINUX
