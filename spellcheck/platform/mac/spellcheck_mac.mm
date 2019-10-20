@@ -11,6 +11,8 @@
 
 #import <QuartzCore/QuartzCore.h>
 
+#include <QtCore/QLocale>
+
 using Platform::Q2NSString;
 using Platform::NS2QString;
 
@@ -106,20 +108,37 @@ void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 
-	NSRange wordRange = NSMakeRange(0, wrongWord.length());
-	NSArray *guesses = [SharedSpellChecker() guessesForWordRange:wordRange
-		inString:Q2NSString(wrongWord)
-		language:nil
-		inSpellDocumentWithTag:0];
+	const auto wordRange = NSMakeRange(0, wrongWord.length());
+	auto *nsWord = Q2NSString(wrongWord);
+	const auto guesses = [&](auto *lang) {
+		return [SharedSpellChecker() guessesForWordRange:wordRange
+			inString:nsWord
+			language:lang
+			inSpellDocumentWithTag:0];
+	};
 
-	auto i = 0;
-	optionalSuggestions->reserve(guesses.count > kMaxSuggestions
-		? kMaxSuggestions
-		: guesses.count);
-	for (NSString *guess in guesses) {
-		optionalSuggestions->push_back(NS2QString(guess));
-		if (++i >= kMaxSuggestions) {
-			break;
+	auto wordCounter = 0;
+	const auto wordScript = ::Spellchecker::WordScript(wrongWord.midRef(0));
+	optionalSuggestions->reserve(kMaxSuggestions);
+	auto hasEnglish = false;
+
+	// for (NSString *lang in [SharedSpellChecker() availableLanguages]) {
+	for (const auto &lang : QLocale::system().uiLanguages()) {
+		const auto isEn = lang.startsWith("en");
+		if (hasEnglish && isEn) {
+			continue;
+		} else {
+			hasEnglish = isEn;
+		}
+		if (wordScript != ::Spellchecker::LocaleToScriptCode(lang)) {
+			continue;
+		}
+
+		for (NSString *guess in guesses(Q2NSString(lang))) {
+			optionalSuggestions->push_back(NS2QString(guess));
+			if (++wordCounter >= kMaxSuggestions) {
+				return;
+			}
 		}
 	}
 }
