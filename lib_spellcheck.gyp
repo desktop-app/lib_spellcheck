@@ -13,7 +13,6 @@
     'includes': [
       '../gyp/helpers/common/library.gypi',
       '../gyp/helpers/modules/qt.gypi',
-      '../gyp/helpers/modules/qt_moc.gypi',
       '../gyp/helpers/modules/pch.gypi',
     ],
     'variables': {
@@ -53,10 +52,10 @@
     },
     'sources': [
       'gyp/sources.txt',
-      '<!@(<(list_sources_command) <(qt_moc_list_sources_arg))',
+      '<!@(<(list_sources_command))',
     ],
     'sources!': [
-      '<!@(<(list_sources_command) <(qt_moc_list_sources_arg) --exclude_for <(build_os))',
+      '<!@(<(list_sources_command) --exclude_for <(build_os))',
     ],
     'conditions': [[ 'build_macold', {
       'xcode_settings': {

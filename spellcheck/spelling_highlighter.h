@@ -39,7 +39,6 @@ inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 using ContextMenuPair = std::pair<not_null<QMenu*>, QContextMenuEvent>;
 
 class SpellingHighlighter final : public QSyntaxHighlighter {
-	Q_OBJECT
 
 public:
 	SpellingHighlighter(
