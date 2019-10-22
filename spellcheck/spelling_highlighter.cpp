@@ -268,8 +268,9 @@ void SpellingHighlighter::checkChangedText() {
 
 MisspelledWords SpellingHighlighter::filterSkippableWords(
 	MisspelledWords &ranges) {
+	const auto documentText = getDocumentText();
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !IsWordSkippable(getDocumentText().midRef(
+		return !IsWordSkippable(documentText.midRef(
 			range.first,
 			range.second));
 	}) | ranges::to_vector;
@@ -302,10 +303,11 @@ void SpellingHighlighter::invokeCheckText(
 			});
 		}
 		crl::on_main(weak, [=,
-				ranges = filterSkippableWords(misspelledWordRanges),
+				ranges = std::move(misspelledWordRanges),
 				callback = std::move(callback)]() mutable {
-			if (!ranges.empty()) {
-				callback(std::move(ranges));
+			const auto filtered = filterSkippableWords(ranges);
+			if (!filtered.empty()) {
+				callback(std::move(filtered));
 			}
 			rehighlight();
 		});
