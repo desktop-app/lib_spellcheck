@@ -20,6 +20,12 @@ struct SubtagScript {
 
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
+constexpr auto kAcuteAccentChars = {
+	QChar(769),	QChar(833),	QChar(180),
+	QChar(714),	QChar(779),	QChar(733),
+	QChar(758),	QChar(791),	QChar(719),
+};
+
 constexpr SubtagScript kLocaleScriptList[] = {
 	{"aa", QChar::Script_Latin},     {"ab", QChar::Script_Cyrillic},
 	{"ady", QChar::Script_Cyrillic}, {"aeb", QChar::Script_Arabic},
@@ -179,6 +185,10 @@ constexpr SubtagScript kLocaleScriptList[] = {
 	// {"zh-tw", USCRIPT_TRADITIONAL_HAN},
 };
 
+inline auto IsAcuteAccentChar(const QChar &c) {
+	return ranges::find(kAcuteAccentChars, c) != end(kAcuteAccentChars);
+}
+
 } // namespace
 
 QChar::Script LocaleToScriptCode(const QString &locale) {
@@ -214,6 +224,7 @@ bool IsWordSkippable(const QStringRef &word) {
 	}
 	return ranges::find_if(word, [&](QChar c) {
 		return (c.script() != wordScript)
+			&& !IsAcuteAccentChar(c)
 			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
 			&& (c.unicode() != '_'); // This is not a word separator.
 	}) != word.end();
