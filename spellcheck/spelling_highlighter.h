@@ -5,16 +5,24 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 
+#include <QtWidgets/QWidget> // input_fields.h
+
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
 #include "spellcheck/spellcheck_types.h"
 #include "ui/ph.h"
+#include "ui/widgets/input_fields.h"
 
 #include <QtGui/QSyntaxHighlighter>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QTextEdit>
 
 #include <rpl/event_stream.h>
+
+namespace Ui {
+struct DocumentChangeInfo;
+struct ExtendedContextMenu;
+} // namespace Ui
 
 namespace ph {
 
@@ -36,15 +44,13 @@ inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 
 //////
 
-using ContextMenuPair = std::pair<not_null<QMenu*>, QContextMenuEvent>;
-
 class SpellingHighlighter final : public QSyntaxHighlighter {
 
 public:
 	SpellingHighlighter(
 		QTextEdit *textEdit,
 		rpl::producer<bool> enabled,
-		rpl::producer<std::tuple<int, int, int>> documentChanges);
+		rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges);
 	~SpellingHighlighter() override {
 	}
 
@@ -102,7 +108,8 @@ private:
 
 	rpl::lifetime _lifetime;
 
-	rpl::event_stream<ContextMenuPair> _contextMenuCreated;
+	using ContextMenu = Ui::InputField::ExtendedContextMenu;
+	rpl::event_stream<ContextMenu> _contextMenuCreated;
 
 };
 

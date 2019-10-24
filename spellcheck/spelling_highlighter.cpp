@@ -9,7 +9,6 @@
 
 #include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
-#include "ui/widgets/input_fields.h"
 #include "ui/ui_utility.h"
 
 namespace ph {
@@ -74,7 +73,7 @@ inline bool IntersectsWordRanges(
 SpellingHighlighter::SpellingHighlighter(
 	QTextEdit *textEdit,
 	rpl::producer<bool> enabled,
-	rpl::producer<std::tuple<int, int, int>> documentChanges)
+	rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges)
 : QSyntaxHighlighter(textEdit->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
@@ -375,14 +374,12 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 			return false;
 		}
 		// Copy of QContextMenuEvent.
-		const auto result = std::make_pair(
-			menu,
-			QContextMenuEvent(
-				c->reason(),
-				c->pos(),
-				c->globalPos()));
-		const auto showMenu = [=, result = std::move(result)] {
-			_contextMenuCreated.fire(std::move(result));
+		const auto copyEvent = QContextMenuEvent(
+			c->reason(),
+			c->pos(),
+			c->globalPos());
+		const auto showMenu = [=, copyEvent = std::move(copyEvent)] {
+			_contextMenuCreated.fire({menu, copyEvent});
 		};
 		addSpellcheckerActions(
 			std::move(menu),
