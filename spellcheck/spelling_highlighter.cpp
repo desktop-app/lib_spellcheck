@@ -9,6 +9,7 @@
 
 #include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
+#include "ui/text/text_entity.h"
 #include "ui/ui_utility.h"
 
 namespace ph {
@@ -66,6 +67,42 @@ inline bool IntersectsWordRanges(
 	const auto l2 = range2.first;
 	const auto r2 = EndOfWord(range2) - 1;
 	return !(l1 > r2 || l2 > r1);
+}
+
+inline bool IsTagUnspellcheckable(const QString &tag) {
+	if (tag.isEmpty()) {
+		return false;
+	}
+	const auto isCommonFormatting = ranges::find_if(
+		kUnspellcheckableTags, [&](const auto *t) {
+			return t == tag;
+	}) != end(kUnspellcheckableTags);
+
+	if (isCommonFormatting) {
+		return true;
+	}
+
+	if (Ui::InputField::IsValidMarkdownLink(tag)) {
+		return true;
+	}
+
+	if (TextUtilities::IsMentionLink(tag)) {
+		return true;
+	}
+	return false;
+}
+
+inline bool IsMentionText(QStringView text, int position) {
+	if (position < 1) {
+		return false;
+	}
+	// If there is the '@' in front of the word, it's probably a mention.
+	// const auto beforeAt = (position == 1)
+	// 	? QChar()
+	// 	: text[position - 2];
+
+	return (text[position - 1] == '@');
+		// && !(beforeAt.isLetterOrNumber() || beforeAt == '_'));
 }
 
 } // namespace
@@ -324,10 +361,7 @@ bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
 	_cursor.setPosition(begin + length, QTextCursor::KeepAnchor);
 	const auto tag = _cursor.charFormat().property(kTagProperty).toString();
 
-	return (!tag.isEmpty())
-		&& ranges::find_if(kUnspellcheckableTags, [&](const auto *t) {
-			return t == tag;
-		}) != end(kUnspellcheckableTags);
+	return IsTagUnspellcheckable(tag);
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
@@ -357,6 +391,10 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 		if (isTagUnspellcheckable(position, l)) {
 			continue;
 		}
+		if (IsMentionText(text, position - block.position())) {
+			continue;
+		}
+
 		setFormat(position - block.position(), length, _misspelledFormat);
 	}
 
