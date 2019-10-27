@@ -331,7 +331,7 @@ bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	_cursor.setPosition(position);
+	_cursor.setPosition(std::min(position, getDocumentText().size() - 1));
 	_cursor.select(QTextCursor::WordUnderCursor);
 	const auto start = _cursor.selectionStart();
 	return std::make_pair(start, _cursor.selectionEnd() - start);
