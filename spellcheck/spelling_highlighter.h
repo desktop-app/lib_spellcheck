@@ -88,7 +88,7 @@ private:
 	bool checkSingleWord(const MisspelledWord &range);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
 
-	bool isTagUnspellcheckable(int begin, int length);
+	bool hasUnspellcheckableTag(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
 	QString getDocumentText();
 

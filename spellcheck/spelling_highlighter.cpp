@@ -356,12 +356,31 @@ bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
 		|| Platform::Spellchecker::CheckSpelling(std::move(w));
 }
 
-bool SpellingHighlighter::isTagUnspellcheckable(int begin, int length) {
-	_cursor.setPosition(begin);
-	_cursor.setPosition(begin + length, QTextCursor::KeepAnchor);
-	const auto tag = _cursor.charFormat().property(kTagProperty).toString();
+bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
+	// This method is called only in the context of separate words,
+	// so it is not supposed that the word can be in more than one block.
+	const auto block = document()->findBlock(begin);
+	const auto end = begin + length;
+	for (auto it = block.begin(); !(it.atEnd()); ++it) {
+		const auto fragment = it.fragment();
+		if (!fragment.isValid()) {
+			continue;
+		}
+		const auto pos = fragment.position();
+		if (pos < begin || pos > end) {
+			continue;
+		}
+		const auto format = fragment.charFormat();
+		if (!format.hasProperty(kTagProperty)) {
+			continue;
+		}
+		const auto tag = format.property(kTagProperty).toString();
+		if (IsTagUnspellcheckable(tag)) {
+			return true;
+		}
+	}
 
-	return IsTagUnspellcheckable(tag);
+	return false;
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
@@ -385,10 +404,8 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 
 	for (const auto &[position, length] : rangesOfBlock) {
 		const auto endOfBlock = text.length() + block.position();
-		const auto l = (endOfBlock < position + length)
-			? endOfBlock - position
-			: length;
-		if (isTagUnspellcheckable(position, l)) {
+		const auto l = std::min(endOfBlock - position, length);
+		if (hasUnspellcheckableTag(position, l)) {
 			continue;
 		}
 		if (IsMentionText(text, position - block.position())) {
