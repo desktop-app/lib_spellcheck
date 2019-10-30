@@ -121,11 +121,8 @@ SpellingHighlighter::SpellingHighlighter(
 
 	_cachedRanges = MisspelledWords();
 
-#ifdef Q_OS_MAC
-	_misspelledFormat.setUnderlineStyle(QTextCharFormat::DotLine);
-#else
-	_misspelledFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-#endif
+	// Use the patched SpellCheckUnderline style.
+	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
 	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 
 	std::move(
