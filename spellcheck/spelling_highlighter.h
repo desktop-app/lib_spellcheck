@@ -48,11 +48,9 @@ class SpellingHighlighter final : public QSyntaxHighlighter {
 
 public:
 	SpellingHighlighter(
-		QTextEdit *textEdit,
+		not_null<Ui::InputField*> field,
 		rpl::producer<bool> enabled,
 		rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges);
-	~SpellingHighlighter() override {
-	}
 
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
@@ -104,7 +102,8 @@ private:
 
 	base::Timer _coldSpellcheckingTimer;
 
-	QTextEdit *_textEdit;
+	not_null<Ui::InputField*> _field;
+	not_null<QTextEdit*> _textEdit;
 
 	rpl::lifetime _lifetime;
 

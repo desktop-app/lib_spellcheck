@@ -108,13 +108,14 @@ inline bool IsMentionText(QStringView text, int position) {
 } // namespace
 
 SpellingHighlighter::SpellingHighlighter(
-	QTextEdit *textEdit,
+	not_null<Ui::InputField*> field,
 	rpl::producer<bool> enabled,
 	rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges)
-: QSyntaxHighlighter(textEdit->document())
+: QSyntaxHighlighter(field->rawTextEdit()->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
-, _textEdit(textEdit) {
+, _field(field)
+, _textEdit(field->rawTextEdit()) {
 
 	_textEdit->installEventFilter(this);
 	_textEdit->viewport()->installEventFilter(this);
@@ -416,7 +417,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 }
 
 bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
-	if (!_textEdit || !_enabled) {
+	if (!_enabled) {
 		return false;
 	}
 	if (e->type() == QEvent::ContextMenu) {
