@@ -348,9 +348,7 @@ void SpellingHighlighter::invokeCheckText(
 				ranges = std::move(misspelledWordRanges),
 				callback = std::move(callback)]() mutable {
 			const auto filtered = filterSkippableWords(ranges);
-			if (!filtered.empty()) {
-				callback(std::move(filtered));
-			}
+			callback(std::move(filtered));
 			rehighlight();
 		});
 	});
