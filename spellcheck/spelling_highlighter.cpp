@@ -116,8 +116,7 @@ inline QChar AddedSymbol(QStringView text, int position, int added) {
 
 SpellingHighlighter::SpellingHighlighter(
 	not_null<Ui::InputField*> field,
-	rpl::producer<bool> enabled,
-	rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges)
+	rpl::producer<bool> enabled)
 : QSyntaxHighlighter(field->rawTextEdit()->document())
 , _cursor(QTextCursor(document()->docHandle(), 0))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
@@ -133,8 +132,7 @@ SpellingHighlighter::SpellingHighlighter(
 	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
 	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 
-	std::move(
-		documentChanges
+	_field->documentContentsChanges(
 	) | rpl::start_with_next([=](const auto &value) {
 		const auto &[pos, removed, added] = value;
 		contentsChange(pos, removed, added);

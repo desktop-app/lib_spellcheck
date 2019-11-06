@@ -20,7 +20,6 @@
 #include <rpl/event_stream.h>
 
 namespace Ui {
-struct DocumentChangeInfo;
 struct ExtendedContextMenu;
 } // namespace Ui
 
@@ -49,8 +48,7 @@ class SpellingHighlighter final : public QSyntaxHighlighter {
 public:
 	SpellingHighlighter(
 		not_null<Ui::InputField*> field,
-		rpl::producer<bool> enabled,
-		rpl::producer<Ui::InputField::DocumentChangeInfo> documentChanges);
+		rpl::producer<bool> enabled);
 
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
