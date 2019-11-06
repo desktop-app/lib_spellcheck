@@ -105,6 +105,13 @@ inline bool IsMentionText(QStringView text, int position) {
 		// && !(beforeAt.isLetterOrNumber() || beforeAt == '_'));
 }
 
+inline QChar AddedSymbol(QStringView text, int position, int added) {
+	if (added != 1 || position >= text.size()) {
+		return QChar();
+	}
+	return text.at(position);
+}
+
 } // namespace
 
 SpellingHighlighter::SpellingHighlighter(
@@ -143,7 +150,7 @@ SpellingHighlighter::SpellingHighlighter(
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
-	if (getDocumentText().isEmpty()) {
+	if (documentText().isEmpty()) {
 		_cachedRanges.clear();
 		return;
 	}
@@ -199,9 +206,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		_lastPosition = pos;
 	}
 
-	const auto addedSymbol = (added == 1)
-		? getDocumentText().midRef(pos, added).front()
-		: QChar();
+	const auto addedSymbol = AddedSymbol(documentText(), pos, added);
 
 	if ((removed == 1) || addedSymbol.isLetterOrNumber()) {
 		if (_coldSpellcheckingTimer.isActive()) {
@@ -245,7 +250,7 @@ void SpellingHighlighter::checkChangedText() {
 
 	const auto checkAndAddWordUnderCursos = [&] {
 		const auto weak = Ui::MakeWeak(this);
-		auto w = getDocumentText().mid(
+		auto w = documentText().mid(
 			wordUnderCursor.first,
 			wordUnderCursor.second);
 		if (IsWordSkippable(&w)) {
@@ -284,7 +289,7 @@ void SpellingHighlighter::checkChangedText() {
 		const auto beginNewSelection = wordUnderCursor.first;
 		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
-		const auto addedText = getDocumentText().mid(
+		const auto addedText = documentText().mid(
 			beginNewSelection,
 			endNewSelection - beginNewSelection);
 
@@ -302,16 +307,19 @@ void SpellingHighlighter::checkChangedText() {
 
 MisspelledWords SpellingHighlighter::filterSkippableWords(
 	MisspelledWords &ranges) {
-	const auto documentText = getDocumentText();
+	const auto text = documentText();
+	if (text.isEmpty()) {
+		return MisspelledWords();
+	}
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !IsWordSkippable(documentText.midRef(
+		return !IsWordSkippable(text.midRef(
 			range.first,
 			range.second));
 	}) | ranges::to_vector;
 }
 
 void SpellingHighlighter::checkCurrentText() {
-	if (const auto text = getDocumentText(); !text.isEmpty()) {
+	if (const auto text = documentText(); !text.isEmpty()) {
 		invokeCheckText(text, [&](const MisspelledWords &ranges) {
 			_cachedRanges = std::move(ranges);
 		});
@@ -349,7 +357,7 @@ void SpellingHighlighter::invokeCheckText(
 }
 
 bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
-	const auto w = getDocumentText().mid(range.first, range.second);
+	const auto w = documentText().mid(range.first, range.second);
 	return IsWordSkippable(&w)
 		|| Platform::Spellchecker::CheckSpelling(std::move(w));
 }
@@ -382,7 +390,7 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	_cursor.setPosition(std::min(position, getDocumentText().size() - 1));
+	_cursor.setPosition(std::min(position, documentText().size() - 1));
 	_cursor.select(QTextCursor::WordUnderCursor);
 	const auto start = _cursor.selectionStart();
 	return std::make_pair(start, _cursor.selectionEnd() - start);
@@ -470,10 +478,8 @@ void SpellingHighlighter::setEnabled(bool enabled) {
 	rehighlight();
 }
 
-QString SpellingHighlighter::getDocumentText() {
-	return document()
-		? document()->toPlainText()
-		: QString();
+QString SpellingHighlighter::documentText() {
+	return _field->getLastText();
 }
 
 void SpellingHighlighter::addSpellcheckerActions(
