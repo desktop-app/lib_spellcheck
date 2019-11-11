@@ -9,6 +9,7 @@
 #include <wrl/client.h>
 #include <spellcheck.h>
 
+#include <QtCore/QDir>
 #include <QtCore/QLocale>
 
 #include "base/platform/base_platform_info.h"
@@ -25,6 +26,19 @@ inline LPCWSTR Q2WString(QString string) {
 	return (LPCWSTR)string.utf16();
 }
 
+inline auto SystemLanguages() {
+	const auto appdata = qEnvironmentVariable("appdata");
+	// Probably never gonna be empty.
+	if (appdata.isEmpty()) {
+		return QLocale::system().uiLanguages();
+	}
+	const auto dir = QDir(appdata + QString("\\Microsoft\\Spelling"));
+	if (!dir.exists()) {
+		return QLocale::system().uiLanguages();
+	}
+	return dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+}
+
 // WindowsSpellChecker class is used to store all the COM objects and
 // control their lifetime. The class also provides wrappers for
 // ISpellCheckerFactory and ISpellChecker APIs. All COM calls are on the
@@ -35,9 +49,7 @@ public:
 
 	WindowsSpellChecker();
 	void createFactory();
-	void createSpellChecker(const QString& lang);
-
-	bool isLanguageSupported(const QString& lang);
+	bool isLanguageSupported(const LPCWSTR& lang);
 
 	void addWord(const QString& word);
 	void removeWord(const QString& word);
@@ -51,6 +63,7 @@ public:
 		MisspelledWords *misspelledWordRanges);
 
 private:
+	void createSpellCheckers();
 
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
 	std::map<QString, ComPtr<ISpellChecker>> _spellcheckerMap;
@@ -59,6 +72,7 @@ private:
 
 WindowsSpellChecker::WindowsSpellChecker() {
 	createFactory();
+	createSpellCheckers();
 }
 
 void WindowsSpellChecker::createFactory() {
@@ -69,33 +83,35 @@ void WindowsSpellChecker::createFactory() {
 	}
 }
 
-void WindowsSpellChecker::createSpellChecker(const QString& lang) {
+void WindowsSpellChecker::createSpellCheckers() {
 	if (!_spellcheckerFactory) {
 		return;
 	}
-	if (_spellcheckerMap.find(lang) != _spellcheckerMap.end()) {
-		return;
-	}
-
-	if (isLanguageSupported(lang)) {
+	for (const auto &lang : SystemLanguages()) {
+		const auto wlang = Q2WString(lang);
+		if (!isLanguageSupported(wlang)) {
+			continue;
+		}
+		if (_spellcheckerMap.find(lang) != _spellcheckerMap.end()) {
+			continue;
+		}
 		ComPtr<ISpellChecker> spellchecker;
 		HRESULT hr = _spellcheckerFactory->CreateSpellChecker(
-		Q2WString(lang), &spellchecker);
+			wlang,
+			&spellchecker);
 		if (SUCCEEDED(hr)) {
 			_spellcheckerMap.insert({lang, spellchecker});
 		}
 	}
 }
 
-bool WindowsSpellChecker::isLanguageSupported(const QString& lang) {
+bool WindowsSpellChecker::isLanguageSupported(const LPCWSTR& lang) {
 	if (!_spellcheckerFactory) {
 		return false;
 	}
 
 	BOOL isSupported = (BOOL)false;
-	HRESULT hr = _spellcheckerFactory->IsSupported(
-		Q2WString(lang),
-		&isSupported);
+	HRESULT hr = _spellcheckerFactory->IsSupported(lang, &isSupported);
 	return SUCCEEDED(hr) && isSupported;
 }
 
@@ -242,14 +258,7 @@ void WindowsSpellChecker::ignoreWord(const QString& word) {
 ////// End of WindowsSpellChecker class.
 
 std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
-	static auto isLanguageSetUp = false;
 	static auto spellchecker = std::make_unique<WindowsSpellChecker>();
-	if (!isLanguageSetUp) {
-		for (const auto lang : QLocale::system().uiLanguages()) {
-			spellchecker->createSpellChecker(lang);
-		}
-		isLanguageSetUp = true;
-	}
 	return spellchecker;
 }
 
