@@ -148,10 +148,11 @@ SpellingHighlighter::SpellingHighlighter(
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
-	if (documentText().isEmpty()) {
+	if (document()->isEmpty()) {
 		_cachedRanges.clear();
 		return;
 	}
+	updateDocumentText();
 
 	const auto shift = [&](auto chars) {
 		ranges::for_each(_cachedRanges, [&](auto &range) {
@@ -248,7 +249,7 @@ void SpellingHighlighter::checkChangedText() {
 
 	const auto checkAndAddWordUnderCursos = [&] {
 		const auto weak = Ui::MakeWeak(this);
-		auto w = documentText().mid(
+		auto w = partDocumentText(
 			wordUnderCursor.first,
 			wordUnderCursor.second);
 		if (IsWordSkippable(&w)) {
@@ -287,7 +288,7 @@ void SpellingHighlighter::checkChangedText() {
 		const auto beginNewSelection = wordUnderCursor.first;
 		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
-		const auto addedText = documentText().mid(
+		const auto addedText = partDocumentText(
 			beginNewSelection,
 			endNewSelection - beginNewSelection);
 
@@ -310,9 +311,11 @@ MisspelledWords SpellingHighlighter::filterSkippableWords(
 		return MisspelledWords();
 	}
 	return ranges | ranges::view::filter([&](const auto &range) {
-		return !IsWordSkippable(text.midRef(
-			range.first,
-			range.second));
+		const auto ref = text.midRef(range.first, range.second);
+		if (ref.isNull()) {
+			return true;
+		}
+		return !IsWordSkippable(ref);
 	}) | ranges::to_vector;
 }
 
@@ -353,7 +356,7 @@ void SpellingHighlighter::invokeCheckText(
 }
 
 bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
-	const auto w = documentText().mid(range.first, range.second);
+	const auto w = partDocumentText(range.first, range.second);
 	return IsWordSkippable(&w)
 		|| Platform::Spellchecker::CheckSpelling(std::move(w));
 }
@@ -386,7 +389,7 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	_cursor.setPosition(std::min(position, documentText().size() - 1));
+	_cursor.setPosition(std::min(position, document()->characterCount() - 1));
 	_cursor.select(QTextCursor::WordUnderCursor);
 	const auto start = _cursor.selectionStart();
 	return std::make_pair(start, _cursor.selectionEnd() - start);
@@ -475,7 +478,15 @@ void SpellingHighlighter::setEnabled(bool enabled) {
 }
 
 QString SpellingHighlighter::documentText() {
-	return _field->getLastText();
+	return _lastPlainText;
+}
+
+void SpellingHighlighter::updateDocumentText() {
+	_lastPlainText = document()->toPlainText();
+}
+
+QString SpellingHighlighter::partDocumentText(int pos, int length) {
+	return _lastPlainText.mid(pos, length);
 }
 
 void SpellingHighlighter::addSpellcheckerActions(

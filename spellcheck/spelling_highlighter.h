@@ -86,7 +86,11 @@ private:
 
 	bool hasUnspellcheckableTag(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
+
 	QString documentText();
+	void updateDocumentText();
+	QString partDocumentText(int pos, int length);
+	QString _lastPlainText;
 
 	QTextCharFormat _misspelledFormat;
 	QTextCursor _cursor;
