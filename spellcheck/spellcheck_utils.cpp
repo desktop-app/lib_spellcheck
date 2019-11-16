@@ -246,8 +246,8 @@ MisspelledWords RangesFromText(
 	};
 
 	while (finder.position() < text.length()) {
-		if (!(finder.boundaryReasons().testFlag(
-				QTextBoundaryFinder::StartOfItem))) {
+		if (!finder.boundaryReasons().testFlag(
+				QTextBoundaryFinder::StartOfItem)) {
 			if (isEnd()) {
 				break;
 			}
@@ -263,17 +263,15 @@ MisspelledWords RangesFromText(
 		if (length < 1) {
 			continue;
 		}
-		ranges.push_back(std::make_pair(start, length));
+		if (!filterCallback(text.mid(start, length))) {
+			ranges.push_back(std::make_pair(start, length));
+		}
 
 		if (isEnd()) {
 			break;
 		}
 	}
-	return ranges::view::all(
-		ranges
-	) | ranges::view::filter([&](const auto &range) {
-		return !filterCallback(text.mid(range.first, range.second));
-	}) | ranges::to_vector;
+	return ranges;
 }
 
 } // namespace Spellchecker
