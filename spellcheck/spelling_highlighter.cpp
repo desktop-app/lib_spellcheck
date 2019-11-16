@@ -549,13 +549,14 @@ void SpellingHighlighter::addSpellcheckerActions(
 		showMenuCallback();
 	};
 
+	cursorForPosition.select(QTextCursor::WordUnderCursor);
+	const auto word = cursorForPosition.selectedText();
+
 	const auto weak = Ui::MakeWeak(this);
 	crl::async([=,
 		newTextCursor = std::move(cursorForPosition),
-		fillMenu = std::move(fillMenu)]() mutable {
-
-		newTextCursor.select(QTextCursor::WordUnderCursor);
-		const auto word = newTextCursor.selectedText();
+		fillMenu = std::move(fillMenu),
+		word = std::move(word)]() mutable {
 
 		const auto isCorrect = IsWordSkippable(&word)
 			|| Platform::Spellchecker::CheckSpelling(word);
