@@ -20,7 +20,7 @@ PRIVATE
 )
 nice_target_sources(lib_spellcheck ${src_loc} "${lib_spellcheck_sources}")
 
-force_include(lib_spellcheck spellcheck/spellcheck_pch.h)
+target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
 
 target_include_directories(lib_spellcheck
 PUBLIC
