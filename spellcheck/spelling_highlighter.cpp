@@ -494,13 +494,21 @@ void SpellingHighlighter::addSpellcheckerActions(
 		QTextCursor cursorForPosition,
 		Fn<void()> showMenuCallback) {
 
+	cursorForPosition.select(QTextCursor::WordUnderCursor);
+	const auto word = cursorForPosition.selectedText();
+
+	// There is no reason to call async work if the word is skippable.
+	if (IsWordSkippable(&word)) {
+		showMenuCallback();
+		return;
+	}
+
 	const auto fillMenu = [=,
 		showMenuCallback = std::move(showMenuCallback),
 		menu = std::move(menu)](
 			const auto isCorrect,
 			const auto suggestions,
 			const auto newTextCursor) {
-		const auto word = newTextCursor.selectedText();
 		if (isCorrect) {
 			if (Platform::Spellchecker::IsWordInDictionary(word)) {
 				menu->addSeparator();
@@ -549,17 +557,13 @@ void SpellingHighlighter::addSpellcheckerActions(
 		showMenuCallback();
 	};
 
-	cursorForPosition.select(QTextCursor::WordUnderCursor);
-	const auto word = cursorForPosition.selectedText();
-
 	const auto weak = Ui::MakeWeak(this);
 	crl::async([=,
 		newTextCursor = std::move(cursorForPosition),
 		fillMenu = std::move(fillMenu),
 		word = std::move(word)]() mutable {
 
-		const auto isCorrect = IsWordSkippable(&word)
-			|| Platform::Spellchecker::CheckSpelling(word);
+		const auto isCorrect = Platform::Spellchecker::CheckSpelling(word);
 		std::vector<QString> suggestions;
 		if (!isCorrect) {
 			Platform::Spellchecker::FillSuggestionList(word, &suggestions);
