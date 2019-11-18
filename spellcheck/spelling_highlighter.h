@@ -83,6 +83,8 @@ private:
 	void checkChangedText();
 	bool checkSingleWord(const MisspelledWord &range);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
+	bool isSkippableWord(const MisspelledWord &range);
+	bool isSkippableWord(int position, int length);
 
 	bool hasUnspellcheckableTag(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);

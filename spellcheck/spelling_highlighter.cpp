@@ -252,7 +252,7 @@ void SpellingHighlighter::checkChangedText() {
 		auto w = partDocumentText(
 			wordUnderCursor.first,
 			wordUnderCursor.second);
-		if (IsWordSkippable(&w)) {
+		if (isSkippableWord(wordUnderCursor.first, wordUnderCursor.second)) {
 			return;
 		}
 		crl::async([=,
@@ -311,12 +311,26 @@ MisspelledWords SpellingHighlighter::filterSkippableWords(
 		return MisspelledWords();
 	}
 	return ranges | ranges::view::filter([&](const auto &range) {
-		const auto ref = text.midRef(range.first, range.second);
-		if (ref.isNull()) {
-			return true;
-		}
-		return !IsWordSkippable(ref);
+		return !isSkippableWord(range);
 	}) | ranges::to_vector;
+}
+
+bool SpellingHighlighter::isSkippableWord(const MisspelledWord &range) {
+	return isSkippableWord(range.first, range.second);
+}
+
+bool SpellingHighlighter::isSkippableWord(int position, int length) {
+	if (hasUnspellcheckableTag(position, length)) {
+		return true;
+	}
+	if (IsMentionText(documentText(), position)) {
+		return true;
+	}
+	const auto ref = documentText().midRef(position, length);
+	if (ref.isNull()) {
+		return true;
+	}
+	return IsWordSkippable(ref);
 }
 
 void SpellingHighlighter::checkCurrentText() {
@@ -400,26 +414,16 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty() || !_enabled) {
 		return;
 	}
-	const auto block = currentBlock();
-	// Skip the all words outside the current block.
-	auto &&rangesOfBlock = (
+	const auto bPos = currentBlock().position();
+	const auto bLen = currentBlock().length();
+	ranges::for_each((
 		_cachedRanges
+	// Skip the all words outside the current block.
 	) | ranges::view::filter([&](const auto &range) {
-		return IntersectsWordRanges(range, block.position(), block.length());
+		return IntersectsWordRanges(range, bPos, bLen);
+	}), [&](const auto &range) {
+		setFormat(range.first - bPos, range.second, _misspelledFormat);
 	});
-
-	for (const auto &[position, length] : rangesOfBlock) {
-		const auto endOfBlock = text.length() + block.position();
-		const auto l = std::min(endOfBlock - position, length);
-		if (hasUnspellcheckableTag(position, l)) {
-			continue;
-		}
-		if (IsMentionText(text, position - block.position())) {
-			continue;
-		}
-
-		setFormat(position - block.position(), length, _misspelledFormat);
-	}
 
 	setCurrentBlockState(0);
 }
@@ -496,13 +500,16 @@ void SpellingHighlighter::addSpellcheckerActions(
 		Fn<void()> showMenuCallback) {
 
 	cursorForPosition.select(QTextCursor::WordUnderCursor);
-	const auto word = cursorForPosition.selectedText();
-
 	// There is no reason to call async work if the word is skippable.
-	if (IsWordSkippable(&word)) {
-		showMenuCallback();
-		return;
+	{
+		const auto s = cursorForPosition.selectionStart();
+		const auto e = cursorForPosition.selectionEnd();
+		if (isSkippableWord(s, e - s)) {
+			showMenuCallback();
+			return;
+		}
 	}
+	const auto word = cursorForPosition.selectedText();
 
 	const auto fillMenu = [=,
 		showMenuCallback = std::move(showMenuCallback),
