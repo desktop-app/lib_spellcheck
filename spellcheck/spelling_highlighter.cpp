@@ -365,14 +365,15 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 	// This method is called only in the context of separate words,
 	// so it is not supposed that the word can be in more than one block.
 	const auto block = document()->findBlock(begin);
-	const auto end = begin + length;
+	length = std::min(block.position() + block.length() - begin, length);
 	for (auto it = block.begin(); !(it.atEnd()); ++it) {
 		const auto fragment = it.fragment();
 		if (!fragment.isValid()) {
 			continue;
 		}
-		const auto pos = fragment.position();
-		if (pos < begin || pos > end) {
+		const auto frPos = fragment.position();
+		const auto frLen = fragment.length();
+		if (!IntersectsWordRanges({frPos, frLen}, begin, length)) {
 			continue;
 		}
 		const auto format = fragment.charFormat();
