@@ -44,6 +44,8 @@ const auto kKeysToCheck = {
 	Qt::Key_End,
 };
 
+const auto kSlashes = QString("://");
+
 inline int EndOfWord(const MisspelledWord &range) {
 	return range.first + range.second;
 }
@@ -103,6 +105,51 @@ inline bool IsMentionText(QStringView text, int position) {
 
 	return (text[position - 1] == '@');
 		// && !(beforeAt.isLetterOrNumber() || beforeAt == '_'));
+}
+
+inline auto FindUrl(QStringView text, int index) {
+	if (text.isNull()) {
+		return MisspelledWord();
+	}
+
+	auto startUrl = index - 1;
+	while (startUrl > 0 && !text[startUrl].isSpace()) {
+		startUrl--;
+	}
+
+	auto endUrl = index + kSlashes.length();
+	const auto textLength = text.length();
+	while (endUrl < textLength && !text[endUrl].isSpace()) {
+		endUrl++;
+	}
+	startUrl++;
+	endUrl -= startUrl;
+	return MisspelledWord(startUrl, endUrl);
+}
+
+inline auto FindUrls(const QString &text) {
+	if (text.isEmpty()) {
+		return MisspelledWords();
+	}
+
+	auto urls = MisspelledWords();
+	auto i = 0;
+	while ((i = text.indexOf(kSlashes, i)) != -1) {
+		if (i > 0 && text[i - 1].isLetterOrNumber()) {
+			const auto url = FindUrl(text, i);
+			i = url.first + url.second;
+			urls.push_back(url);
+		} else {
+			++i;
+		}
+	}
+	return urls;
+}
+
+inline auto IntersectsAnyOfRanges(int pos, int len, MisspelledWords ranges) {
+	return !ranges.empty() && ranges::any_of(ranges, [&](const auto &range) {
+		return IntersectsWordRanges(range, pos, len);
+	});
 }
 
 inline QChar AddedSymbol(QStringView text, int position, int added) {
@@ -414,6 +461,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty() || !_enabled) {
 		return;
 	}
+	const auto urls = FindUrls(text);
 	const auto bPos = currentBlock().position();
 	const auto bLen = currentBlock().length();
 	ranges::for_each((
@@ -422,7 +470,11 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	) | ranges::view::filter([&](const auto &range) {
 		return IntersectsWordRanges(range, bPos, bLen);
 	}), [&](const auto &range) {
-		setFormat(range.first - bPos, range.second, _misspelledFormat);
+		const auto posInBlock = range.first - bPos;
+		if (IntersectsAnyOfRanges(posInBlock, range.second, urls)) {
+			return;
+		}
+		setFormat(posInBlock, range.second, _misspelledFormat);
 	});
 
 	setCurrentBlockState(0);
@@ -502,9 +554,10 @@ void SpellingHighlighter::addSpellcheckerActions(
 	cursorForPosition.select(QTextCursor::WordUnderCursor);
 	// There is no reason to call async work if the word is skippable.
 	{
-		const auto s = cursorForPosition.selectionStart();
-		const auto e = cursorForPosition.selectionEnd();
-		if (isSkippableWord(s, e - s)) {
+		const auto p = cursorForPosition.selectionStart();
+		const auto l = cursorForPosition.selectionEnd() - p;
+		if (isSkippableWord(p, l)
+			|| IntersectsAnyOfRanges(p, l, FindUrls(documentText()))) {
 			showMenuCallback();
 			return;
 		}
