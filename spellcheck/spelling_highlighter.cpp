@@ -95,6 +95,7 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 }
 
 inline bool IsMentionText(QStringView text, int position) {
+	Assert(position < text.size());
 	if (position < 1) {
 		return false;
 	}
@@ -302,6 +303,7 @@ void SpellingHighlighter::checkChangedText() {
 		if (isSkippableWord(wordUnderCursor.first, wordUnderCursor.second)) {
 			return;
 		}
+		_countOfAsync++;
 		crl::async([=,
 			w = std::move(w),
 			wordUnderCursor = std::move(wordUnderCursor)]() mutable {
@@ -311,6 +313,7 @@ void SpellingHighlighter::checkChangedText() {
 
 			crl::on_main(weak, [=,
 					wordUnderCursor = std::move(wordUnderCursor)]() mutable {
+				_countOfAsync--;
 				ranges::insert(
 					_cachedRanges,
 					ranges::find_if(_cachedRanges, [&](auto &&w) {
@@ -398,6 +401,7 @@ void SpellingHighlighter::invokeCheckText(
 	const auto rangesOffset = textPosition;
 	const auto text = partDocumentText(textPosition, textLength);
 	const auto weak = Ui::MakeWeak(this);
+	_countOfAsync++;
 	crl::async([=,
 		text = std::move(text),
 		callback = std::move(callback)]() mutable {
@@ -411,8 +415,22 @@ void SpellingHighlighter::invokeCheckText(
 			});
 		}
 		crl::on_main(weak, [=,
+				text = std::move(text),
 				ranges = std::move(misspelledWordRanges),
 				callback = std::move(callback)]() mutable {
+			_countOfAsync--;
+			// Checking a large part of text can take an unknown amount of
+			// time. So we have to compare the text before and after async
+			// work.
+			// If the text has changed during async and we have more async,
+			// we don't perform further refreshing of cache and underlines.
+			// But if it was the last async, we should invoke a new one.
+			if (compareDocumentText(text, textPosition, textLength)) {
+				if (!_countOfAsync) {
+					checkCurrentText();
+				}
+				return;
+			}
 			const auto filtered = filterSkippableWords(ranges);
 			callback(std::move(filtered));
 			rehighlight();
@@ -548,6 +566,20 @@ void SpellingHighlighter::updateDocumentText() {
 
 QString SpellingHighlighter::partDocumentText(int pos, int length) {
 	return _lastPlainText.mid(pos, length);
+}
+
+int SpellingHighlighter::compareDocumentText(
+	const QString &text,
+	int textPos,
+	int textLen) {
+	if (_lastPlainText.size() < textPos + textLen) {
+		return -1;
+	}
+	const auto p = _lastPlainText.midRef(textPos, textLen);
+	if (p.isNull()) {
+		return -1;
+	}
+	return text.compare(p, Qt::CaseSensitive);
 }
 
 void SpellingHighlighter::addSpellcheckerActions(

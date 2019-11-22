@@ -92,7 +92,10 @@ private:
 	QString documentText();
 	void updateDocumentText();
 	QString partDocumentText(int pos, int length);
+	int compareDocumentText(const QString &text, int textPos, int textLen);
 	QString _lastPlainText;
+
+	int _countOfAsync = 0;
 
 	QTextCharFormat _misspelledFormat;
 	QTextCursor _cursor;
