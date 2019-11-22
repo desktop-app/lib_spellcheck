@@ -335,13 +335,12 @@ void SpellingHighlighter::checkChangedText() {
 		const auto beginNewSelection = wordUnderCursor.first;
 		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
-		const auto addedText = partDocumentText(
+		invokeCheckText(
 			beginNewSelection,
-			endNewSelection - beginNewSelection);
-
-		invokeCheckText(std::move(addedText), [=](const MisspelledWords &r) {
-			ranges::insert(_cachedRanges, wordInCacheIt(), std::move(r));
-		}, beginNewSelection);
+			endNewSelection - beginNewSelection,
+			[=](const MisspelledWords &r) {
+				ranges::insert(_cachedRanges, wordInCacheIt(), std::move(r));
+		});
 		return;
 	}
 
@@ -381,25 +380,30 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 }
 
 void SpellingHighlighter::checkCurrentText() {
-	if (const auto text = documentText(); !text.isEmpty()) {
-		invokeCheckText(text, [&](const MisspelledWords &ranges) {
-			_cachedRanges = std::move(ranges);
-		});
+	if (document()->isEmpty()) {
+		_cachedRanges.clear();
+		return;
 	}
+	const auto length = document()->characterCount() - 1;
+	invokeCheckText(0, length, [&](const MisspelledWords &ranges) {
+		_cachedRanges = std::move(ranges);
+	});
 }
 
 void SpellingHighlighter::invokeCheckText(
-	const QString &text,
-	Fn<void(const MisspelledWords &ranges)> callback,
-	int rangesOffset) {
+	int textPosition,
+	int textLength,
+	Fn<void(const MisspelledWords &ranges)> callback) {
 
+	const auto rangesOffset = textPosition;
+	const auto text = partDocumentText(textPosition, textLength);
 	const auto weak = Ui::MakeWeak(this);
 	crl::async([=,
 		text = std::move(text),
 		callback = std::move(callback)]() mutable {
 		MisspelledWords misspelledWordRanges;
 		Platform::Spellchecker::CheckSpellingText(
-			std::move(text),
+			text,
 			&misspelledWordRanges);
 		if (rangesOffset) {
 			ranges::for_each(misspelledWordRanges, [&](auto &&range) {

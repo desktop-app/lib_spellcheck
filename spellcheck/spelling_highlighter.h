@@ -76,9 +76,9 @@ private:
 	void checkText(const QString &text);
 
 	void invokeCheckText(
-		const QString &text,
-		Fn<void(const MisspelledWords &ranges)> callback,
-		int rangesOffset = 0);
+		int textPosition,
+		int textLength,
+		Fn<void(const MisspelledWords &ranges)> callback);
 
 	void checkChangedText();
 	bool checkSingleWord(const MisspelledWord &range);
