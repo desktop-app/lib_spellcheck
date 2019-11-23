@@ -14,6 +14,7 @@
 #include "ui/widgets/input_fields.h"
 
 #include <QtGui/QSyntaxHighlighter>
+#include <QtGui/QTextBlock>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QTextEdit>
 
@@ -94,6 +95,8 @@ private:
 	QString partDocumentText(int pos, int length);
 	int compareDocumentText(const QString &text, int textPos, int textLen);
 	QString _lastPlainText;
+
+	std::vector<QTextBlock> blocksFromRange(int pos, int length);
 
 	int _countOfAsync = 0;
 

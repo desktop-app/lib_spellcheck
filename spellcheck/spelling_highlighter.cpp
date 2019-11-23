@@ -241,7 +241,10 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 		shift(-removed);
 	}
 
-	rehighlight();
+	// Normally we should to invoke rehighlighting to immediately apply
+	// shifting of ranges. But we don't have to do this because the call of
+	// contentsChange() is performed before the application's call of
+	// highlightBlock().
 
 	_addedSymbols += added;
 	_removedSymbols += removed;
@@ -314,13 +317,14 @@ void SpellingHighlighter::checkChangedText() {
 			crl::on_main(weak, [=,
 					wordUnderCursor = std::move(wordUnderCursor)]() mutable {
 				_countOfAsync--;
+				const auto posOfWord = wordUnderCursor.first;
 				ranges::insert(
 					_cachedRanges,
 					ranges::find_if(_cachedRanges, [&](auto &&w) {
-						return w.first >= wordUnderCursor.first;
+						return w.first >= posOfWord;
 					}),
-					std::move(wordUnderCursor));
-				rehighlight();
+					wordUnderCursor);
+				rehighlightBlock(document()->findBlock(posOfWord));
 			});
 		});
 	};
@@ -331,7 +335,6 @@ void SpellingHighlighter::checkChangedText() {
 		// This is the same word.
 		if (wordUnderCursor == lastWordNewSelection) {
 			checkAndAddWordUnderCursos();
-			rehighlight();
 			return;
 		}
 
@@ -349,7 +352,6 @@ void SpellingHighlighter::checkChangedText() {
 
 	if (removed > 0) {
 		checkAndAddWordUnderCursos();
-		rehighlight();
 	}
 }
 
@@ -433,7 +435,9 @@ void SpellingHighlighter::invokeCheckText(
 			}
 			const auto filtered = filterSkippableWords(ranges);
 			callback(std::move(filtered));
-			rehighlight();
+			for (const auto &b : blocksFromRange(textPosition, textLength)) {
+				rehighlightBlock(b);
+			}
 		});
 	});
 }
@@ -480,7 +484,7 @@ MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
 }
 
 void SpellingHighlighter::highlightBlock(const QString &text) {
-	if (_cachedRanges.empty() || !_enabled) {
+	if (_cachedRanges.empty() || !_enabled || text.isEmpty()) {
 		return;
 	}
 	const auto urls = FindUrls(text);
@@ -552,8 +556,8 @@ void SpellingHighlighter::setEnabled(bool enabled) {
 		checkCurrentText();
 	} else {
 		_cachedRanges.clear();
+		rehighlight();
 	}
-	rehighlight();
 }
 
 QString SpellingHighlighter::documentText() {
@@ -566,6 +570,19 @@ void SpellingHighlighter::updateDocumentText() {
 
 QString SpellingHighlighter::partDocumentText(int pos, int length) {
 	return _lastPlainText.mid(pos, length);
+}
+
+std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
+	int pos,
+	int length) {
+
+	auto b = document()->findBlock(pos);
+	auto blocks = std::vector<QTextBlock>{b};
+	const auto end = pos + length;
+	while (!b.contains(end)) {
+		blocks.push_back(b = b.next());
+	}
+	return blocks;
 }
 
 int SpellingHighlighter::compareDocumentText(
