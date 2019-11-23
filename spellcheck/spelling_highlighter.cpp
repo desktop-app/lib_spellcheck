@@ -292,6 +292,11 @@ void SpellingHighlighter::checkChangedText() {
 	}
 
 	const auto wordUnderCursor = getWordUnderPosition(pos);
+	// If the length of the word is 0, there is no sense in checking it.
+	if (!wordUnderCursor.second) {
+		return;
+	}
+
 	const auto wordInCacheIt = [=] {
 		return ranges::find_if(_cachedRanges, [&](auto &&w) {
 			return w.first >= wordUnderCursor.first;
