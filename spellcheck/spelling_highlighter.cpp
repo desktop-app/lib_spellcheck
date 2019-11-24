@@ -614,7 +614,8 @@ void SpellingHighlighter::addSpellcheckerActions(
 	{
 		const auto p = cursorForPosition.selectionStart();
 		const auto l = cursorForPosition.selectionEnd() - p;
-		if (isSkippableWord(p, l)
+		if (!l
+			|| isSkippableWord(p, l)
 			|| IntersectsAnyOfRanges(p, l, FindUrls(documentText()))) {
 			showMenuCallback();
 			return;
