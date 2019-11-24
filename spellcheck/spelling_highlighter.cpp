@@ -584,8 +584,10 @@ std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
 	auto b = document()->findBlock(pos);
 	auto blocks = std::vector<QTextBlock>{b};
 	const auto end = pos + length;
-	while (!b.contains(end)) {
-		blocks.push_back(b = b.next());
+	while (!b.contains(end) && (b != document()->end())) {
+		if ((b = b.next()).isValid()) {
+			blocks.push_back(b);
+		}
 	}
 	return blocks;
 }
