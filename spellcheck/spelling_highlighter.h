@@ -98,7 +98,7 @@ private:
 
 	std::vector<QTextBlock> blocksFromRange(int pos, int length);
 
-	int _countOfAsync = 0;
+	int _countOfCheckingTextAsync = 0;
 
 	QTextCharFormat _misspelledFormat;
 	QTextCursor _cursor;

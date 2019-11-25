@@ -311,7 +311,6 @@ void SpellingHighlighter::checkChangedText() {
 		if (isSkippableWord(wordUnderCursor.first, wordUnderCursor.second)) {
 			return;
 		}
-		_countOfAsync++;
 		crl::async([=,
 			w = std::move(w),
 			wordUnderCursor = std::move(wordUnderCursor)]() mutable {
@@ -321,7 +320,6 @@ void SpellingHighlighter::checkChangedText() {
 
 			crl::on_main(weak, [=,
 					wordUnderCursor = std::move(wordUnderCursor)]() mutable {
-				_countOfAsync--;
 				const auto posOfWord = wordUnderCursor.first;
 				ranges::insert(
 					_cachedRanges,
@@ -408,7 +406,7 @@ void SpellingHighlighter::invokeCheckText(
 	const auto rangesOffset = textPosition;
 	const auto text = partDocumentText(textPosition, textLength);
 	const auto weak = Ui::MakeWeak(this);
-	_countOfAsync++;
+	_countOfCheckingTextAsync++;
 	crl::async([=,
 		text = std::move(text),
 		callback = std::move(callback)]() mutable {
@@ -425,7 +423,7 @@ void SpellingHighlighter::invokeCheckText(
 				text = std::move(text),
 				ranges = std::move(misspelledWordRanges),
 				callback = std::move(callback)]() mutable {
-			_countOfAsync--;
+			_countOfCheckingTextAsync--;
 			// Checking a large part of text can take an unknown amount of
 			// time. So we have to compare the text before and after async
 			// work.
@@ -433,7 +431,7 @@ void SpellingHighlighter::invokeCheckText(
 			// we don't perform further refreshing of cache and underlines.
 			// But if it was the last async, we should invoke a new one.
 			if (compareDocumentText(text, textPosition, textLength)) {
-				if (!_countOfAsync) {
+				if (!_countOfCheckingTextAsync) {
 					checkCurrentText();
 				}
 				return;
