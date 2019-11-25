@@ -407,7 +407,35 @@ void SpellingHighlighter::invokeCheckText(
 				}
 				return;
 			}
-			const auto filtered = filterSkippableWords(ranges);
+			auto filtered = filterSkippableWords(ranges);
+
+			// When we finish checking the text, the user can
+			// supplement the last word and there may be a situation where
+			// a part of the last word may not be underlined correctly.
+			// Example:
+			// 1. We insert a text with an incomplete last word.
+			// "Time in a bottl".
+			// 2. We don't wait for the check to be finished
+			// and end the last word with the letter "e".
+			// 3. invokeCheckText() will mark the last word "bottl" as
+			// misspelled.
+			// 4. checkSingleWord() will mark the "bottle" as correct and
+			// leave it as it is.
+			// 5. The first five letters of the "bottle" will be underlined
+			// and the sixth will not be underlined.
+			// We can fix it with a check of completeness of the last word.
+			if (filtered.size()) {
+				const auto lastWord = filtered.back();
+				if (const auto endOfText = textPosition + textLength;
+					EndOfWord(lastWord) == endOfText) {
+					const auto word = getWordUnderPosition(endOfText);
+					if (EndOfWord(word) != endOfText) {
+						filtered.pop_back();
+						checkSingleWord(word);
+					}
+				}
+			}
+
 			callback(std::move(filtered));
 			for (const auto &b : blocksFromRange(textPosition, textLength)) {
 				rehighlightBlock(b);
