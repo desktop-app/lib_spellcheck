@@ -82,7 +82,7 @@ private:
 		Fn<void(const MisspelledWords &ranges)> callback);
 
 	void checkChangedText();
-	bool checkSingleWord(const MisspelledWord &range);
+	void checkSingleWord(const MisspelledWord &singleWord);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
 	bool isSkippableWord(const MisspelledWord &range);
 	bool isSkippableWord(int position, int length);

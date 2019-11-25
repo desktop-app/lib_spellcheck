@@ -303,41 +303,12 @@ void SpellingHighlighter::checkChangedText() {
 		});
 	};
 
-	const auto checkAndAddWordUnderCursos = [&] {
-		const auto weak = Ui::MakeWeak(this);
-		auto w = partDocumentText(
-			wordUnderCursor.first,
-			wordUnderCursor.second);
-		if (isSkippableWord(wordUnderCursor.first, wordUnderCursor.second)) {
-			return;
-		}
-		crl::async([=,
-			w = std::move(w),
-			wordUnderCursor = std::move(wordUnderCursor)]() mutable {
-			if (Platform::Spellchecker::CheckSpelling(std::move(w))) {
-				return;
-			}
-
-			crl::on_main(weak, [=,
-					wordUnderCursor = std::move(wordUnderCursor)]() mutable {
-				const auto posOfWord = wordUnderCursor.first;
-				ranges::insert(
-					_cachedRanges,
-					ranges::find_if(_cachedRanges, [&](auto &&w) {
-						return w.first >= posOfWord;
-					}),
-					wordUnderCursor);
-				rehighlightBlock(document()->findBlock(posOfWord));
-			});
-		});
-	};
-
 	if (added > 0) {
 		const auto lastWordNewSelection = getWordUnderPosition(pos + added);
 
 		// This is the same word.
 		if (wordUnderCursor == lastWordNewSelection) {
-			checkAndAddWordUnderCursos();
+			checkSingleWord(wordUnderCursor);
 			return;
 		}
 
@@ -354,7 +325,7 @@ void SpellingHighlighter::checkChangedText() {
 	}
 
 	if (removed > 0) {
-		checkAndAddWordUnderCursos();
+		checkSingleWord(wordUnderCursor);
 	}
 }
 
@@ -445,10 +416,31 @@ void SpellingHighlighter::invokeCheckText(
 	});
 }
 
-bool SpellingHighlighter::checkSingleWord(const MisspelledWord &range) {
-	const auto w = partDocumentText(range.first, range.second);
-	return IsWordSkippable(&w)
-		|| Platform::Spellchecker::CheckSpelling(std::move(w));
+void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
+	const auto weak = Ui::MakeWeak(this);
+	auto w = partDocumentText(singleWord.first, singleWord.second);
+	if (isSkippableWord(singleWord)) {
+		return;
+	}
+	crl::async([=,
+		w = std::move(w),
+		singleWord = std::move(singleWord)]() mutable {
+		if (Platform::Spellchecker::CheckSpelling(std::move(w))) {
+			return;
+		}
+
+		crl::on_main(weak, [=,
+				singleWord = std::move(singleWord)]() mutable {
+			const auto posOfWord = singleWord.first;
+			ranges::insert(
+				_cachedRanges,
+				ranges::find_if(_cachedRanges, [&](auto &&w) {
+					return w.first >= posOfWord;
+				}),
+				singleWord);
+			rehighlightBlock(document()->findBlock(posOfWord));
+		});
+	});
 }
 
 bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
