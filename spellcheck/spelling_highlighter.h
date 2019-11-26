@@ -98,6 +98,8 @@ private:
 
 	std::vector<QTextBlock> blocksFromRange(int pos, int length);
 
+	int size();
+
 	int _countOfCheckingTextAsync = 0;
 
 	QTextCharFormat _misspelledFormat;

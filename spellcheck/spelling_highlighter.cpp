@@ -363,8 +363,7 @@ void SpellingHighlighter::checkCurrentText() {
 		_cachedRanges.clear();
 		return;
 	}
-	const auto length = document()->characterCount() - 1;
-	invokeCheckText(0, length, [&](const MisspelledWords &ranges) {
+	invokeCheckText(0, size(), [&](const MisspelledWords &ranges) {
 		_cachedRanges = std::move(ranges);
 	});
 }
@@ -500,7 +499,7 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	_cursor.setPosition(std::min(position, document()->characterCount() - 1));
+	_cursor.setPosition(std::min(position, size()));
 	_cursor.select(QTextCursor::WordUnderCursor);
 	const auto start = _cursor.selectionStart();
 	return std::make_pair(start, _cursor.selectionEnd() - start);
@@ -593,6 +592,10 @@ void SpellingHighlighter::updateDocumentText() {
 
 QString SpellingHighlighter::partDocumentText(int pos, int length) {
 	return _lastPlainText.mid(pos, length);
+}
+
+int SpellingHighlighter::size() {
+	return document()->characterCount() - 1;
 }
 
 std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
