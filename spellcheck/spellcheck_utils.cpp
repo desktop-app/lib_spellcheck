@@ -21,7 +21,7 @@ struct SubtagScript {
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
 constexpr auto kAcuteAccentChars = {
-	QChar(769),	QChar(833),	QChar(180),
+	QChar(769),	QChar(833),	// QChar(180),
 	QChar(714),	QChar(779),	QChar(733),
 	QChar(758),	QChar(791),	QChar(719),
 };
