@@ -33,6 +33,8 @@ const auto kUnspellcheckableTags = {
 
 constexpr auto kColdSpellcheckingTimeout = crl::time(1000);
 
+constexpr auto kMaxDeadKeys = 1;
+
 const auto kKeysToCheck = {
 	Qt::Key_Up,
 	Qt::Key_Down,
@@ -160,6 +162,28 @@ inline QChar AddedSymbol(QStringView text, int position, int added) {
 	return text.at(position);
 }
 
+inline MisspelledWord CorrectAccentValues(
+	const QString &oldText,
+	const QString &newText) {
+	auto diff = std::vector<int>();
+	const auto sizeOfDiff = newText.size() - oldText.size();
+	if (sizeOfDiff <= 0 || sizeOfDiff > kMaxDeadKeys) {
+		return MisspelledWord();
+	}
+	for (auto i = 0; i < oldText.size(); i++) {
+		if (oldText.at(i) != newText.at(i + diff.size())) {
+			diff.push_back(i);
+			if (diff.size() > kMaxDeadKeys) {
+				return MisspelledWord();
+			}
+		}
+	}
+	if (diff.size() == 0) {
+		return MisspelledWord(oldText.size(), sizeOfDiff);
+	}
+	return MisspelledWord(diff.front(), diff.size() > 1 ? diff.back() : 1);
+}
+
 } // namespace
 
 SpellingHighlighter::SpellingHighlighter(
@@ -197,10 +221,38 @@ SpellingHighlighter::SpellingHighlighter(
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	if (document()->isEmpty()) {
+		updateDocumentText();
 		_cachedRanges.clear();
 		return;
 	}
-	updateDocumentText();
+
+	{
+		const auto oldText = documentText();
+		updateDocumentText();
+		// This is a workaround for typing accents.
+		// For example, when the user press the dead key (e.g. ` or ´),
+		// Qt sends wrong values. E.g. if a text length is 100,
+		// then values will be 0, 100, 100.
+		// This invokes to re-check the entire text.
+		// The Mac's accent menu has a pretty similar behavior.
+		if (!pos && (size() == added)) {
+			const auto newText = documentText();
+			const auto diff = added - removed;
+			// The plain text of the document cannot contain dead keys.
+			if (!diff) {
+				if (!oldText.compare(newText, Qt::CaseSensitive)) {
+					return;
+				}
+			} else if (diff > 0 && diff <= kMaxDeadKeys) {
+				const auto [p, l] = CorrectAccentValues(oldText, newText);
+				if (l) {
+					pos = p;
+					added = l;
+					removed = 0;
+				}
+			}
+		}
+	}
 
 	const auto shift = [&](auto chars) {
 		ranges::for_each(_cachedRanges, [&](auto &range) {
