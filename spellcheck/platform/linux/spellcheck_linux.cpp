@@ -49,16 +49,17 @@ EnchantSpellChecker::EnchantSpellChecker() {
 			void *our_payload) {
 		static_cast<decltype(langs)*>(our_payload)->insert(language);
 	}, &langs);
-	typedef std::unique_ptr<enchant::Dict> P;
+	using DictPtr = std::unique_ptr<enchant::Dict>;
+	_validators.reserve(langs.size());
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
-		_validators.push_back(P(_brokerHandle->request_dict(langTag)));
+		_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
 		langs.erase(langTag);
 	} catch (const enchant::Exception &e) {
 		// no first dictionary found
 	}
 	for (const std::string &language : langs) {
-		_validators.push_back(P(_brokerHandle->request_dict(language)));
+		_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
 	}
 }
 
@@ -129,7 +130,7 @@ bool EnchantSpellChecker::isWordInDictionary(const QString &word) {
 	});
 }
 
-} // anonymous namespace
+} // namespace
 
 bool IsAvailable() {
 	return EnchantSpellChecker::instance()->isAvailable();
@@ -167,8 +168,8 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 
 void CheckSpellingText(
 		const QString &text,
-		MisspelledWords *misspelledWordRanges) {
-	*misspelledWordRanges = ::Spellchecker::RangesFromText(text, CheckSpelling);
+		MisspelledWords *misspelledWords) {
+	*misspelledWords = ::Spellchecker::RangesFromText(text, CheckSpelling);
 }
 
 } // namespace Platform::Spellchecker

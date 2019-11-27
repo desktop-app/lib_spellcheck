@@ -27,7 +27,7 @@ void IgnoreWord(const QString &word);
 
 void CheckSpellingText(
 	const QString &text,
-	MisspelledWords *misspelledWordRanges);
+	MisspelledWords *misspelledWords);
 
 } // namespace Platform::Spellchecker
 

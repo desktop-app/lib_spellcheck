@@ -65,7 +65,7 @@ bool CheckSpelling(const QString &wordToCheck) {
 // There's no need to check the language on the Mac.
 void CheckSpellingText(
 	const QString &text,
-	MisspelledWords *misspelledWordRanges) {
+	MisspelledWords *misspelledWords) {
 // Probably never gonna be defined.
 #ifdef SPELLCHECKER_MAC_AUTO_CHECK_TEXT
 
@@ -79,12 +79,12 @@ void CheckSpellingText(
 			orthography:nil
 			wordCount:nil];
 
-	misspelledWordRanges->reserve(spellRanges.count);
+	misspelledWords->reserve(spellRanges.count);
 	for (NSTextCheckingResult *result in spellRanges) {
 		if (result.resultType != NSTextCheckingTypeSpelling) {
 			continue;
 		}
-		misspelledWordRanges->push_back({
+		misspelledWords->push_back({
 			result.range.location,
 			result.range.length});
 	}
@@ -96,18 +96,7 @@ void CheckSpellingText(
 // But at the same time "testtttyy" will be marked as misspelled word.
 
 // So we have to manually split the text into words and check them separately.
-	const auto words = ::Spellchecker::RangesFromText(text, [&](auto &word) {
-		return CheckSpelling(std::move(word));
-	});
-
-	if (words.empty()) {
-		return;
-	}
-
-	misspelledWordRanges->insert(
-		misspelledWordRanges->end(),
-		words.begin(),
-		words.end());
+	*misspelledWords = ::Spellchecker::RangesFromText(text, CheckSpelling);
 
 #endif
 }

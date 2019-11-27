@@ -202,9 +202,10 @@ inline auto IsSpellcheckableScripts(const QChar::Script &s) {
 } // namespace
 
 QChar::Script LocaleToScriptCode(const QString &locale) {
-	int index = std::max(locale.indexOf('_'), locale.indexOf('-'));
+	const auto subtag = locale.left(
+		std::max(locale.indexOf('_'), locale.indexOf('-')));
 	for (const auto &kv : kLocaleScriptList) {
-		if (locale.left(index) == kv.subtag) {
+		if (subtag == kv.subtag) {
 			return kv.script;
 		}
 	}
@@ -216,10 +217,9 @@ QChar::Script WordScript(const QStringRef &word) {
 	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
 		return c.isLetter();
 	});
-	if (firstLetter == word.end()) {
-		return QChar::Script_Common;
-	}
-	return firstLetter->script();
+	return firstLetter == word.end()
+		? QChar::Script_Common
+		: firstLetter->script();
 }
 
 bool IsWordSkippable(const QStringRef &word) {

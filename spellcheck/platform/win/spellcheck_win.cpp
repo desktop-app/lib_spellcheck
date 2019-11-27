@@ -42,12 +42,8 @@ inline auto SystemLanguages() {
 // ISpellCheckerFactory and ISpellChecker APIs. All COM calls are on the
 // background thread.
 class WindowsSpellChecker {
-
 public:
-
 	WindowsSpellChecker();
-	void createFactory();
-	bool isLanguageSupported(const LPCWSTR& lang);
 
 	void addWord(LPCWSTR word);
 	void removeWord(LPCWSTR word);
@@ -61,6 +57,8 @@ public:
 		MisspelledWords *misspelledWordRanges);
 
 private:
+	void createFactory();
+	bool isLanguageSupported(const LPCWSTR& lang);
 	void createSpellCheckers();
 
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
@@ -98,7 +96,7 @@ void WindowsSpellChecker::createSpellCheckers() {
 			wlang,
 			&spellchecker);
 		if (SUCCEEDED(hr)) {
-			_spellcheckerMap.insert({lang, spellchecker});
+			_spellcheckerMap.insert({ lang, spellchecker });
 		}
 	}
 }
@@ -129,16 +127,15 @@ void WindowsSpellChecker::fillSuggestionList(
 			}
 			const auto guess =
 				QString::fromWCharArray(suggestion, wcslen(suggestion));
+			CoTaskMemFree(suggestion);
 			if (!guess.isEmpty()) {
 				optionalSuggestions->push_back(guess);
 				if (++i >= kMaxSuggestions) {
 					return;
 				}
 			}
-			CoTaskMemFree(suggestion);
 		}
 	}
-
 }
 
 bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
@@ -205,13 +202,10 @@ void WindowsSpellChecker::checkSpellingText(
 				&& isActionGood(action))) {
 				continue;
 			}
-			const auto word = std::make_pair(
-				(int) startIndex,
-				(int) errorLength);
+			const auto word = std::pair((int) startIndex, (int) errorLength);
 			if (misspelledWords.empty()
-				|| ranges::find_if(misspelledWords, [&](auto &range) {
-					return (word == range);
-				}) != misspelledWords.end()) {
+				|| (ranges::find(misspelledWords, word)
+					!= misspelledWords.end())) {
 				tempMisspelled.push_back(std::move(word));
 			}
 		}
@@ -223,10 +217,7 @@ void WindowsSpellChecker::checkSpellingText(
 		}
 		misspelledWords = std::move(tempMisspelled);
 	}
-	misspelledWordRanges->insert(
-		misspelledWordRanges->end(),
-		misspelledWords.begin(),
-		misspelledWords.end());
+	*misspelledWordRanges = misspelledWords;
 }
 
 void WindowsSpellChecker::addWord(LPCWSTR word) {
@@ -305,10 +296,10 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 
 void CheckSpellingText(
 	const QString &text,
-	MisspelledWords *misspelledWordRanges) {
+	MisspelledWords *misspelledWords) {
 	SharedSpellChecker()->checkSpellingText(
 		Q2WString(text),
-		misspelledWordRanges);
+		misspelledWords);
 }
 
 
