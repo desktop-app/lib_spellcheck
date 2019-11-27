@@ -26,6 +26,11 @@ constexpr auto kAcuteAccentChars = {
 	QChar(758),	QChar(791),	QChar(719),
 };
 
+constexpr auto kUnspellcheckableScripts = {
+	QChar::Script_Katakana,
+	QChar::Script_Han,
+};
+
 constexpr SubtagScript kLocaleScriptList[] = {
 	{"aa", QChar::Script_Latin},     {"ab", QChar::Script_Cyrillic},
 	{"ady", QChar::Script_Cyrillic}, {"aeb", QChar::Script_Arabic},
@@ -189,6 +194,11 @@ inline auto IsAcuteAccentChar(const QChar &c) {
 	return ranges::find(kAcuteAccentChars, c) != end(kAcuteAccentChars);
 }
 
+inline auto IsSpellcheckableScripts(const QChar::Script &s) {
+	return ranges::find(kUnspellcheckableScripts, s)
+		== end(kUnspellcheckableScripts);
+}
+
 } // namespace
 
 QChar::Script LocaleToScriptCode(const QString &locale) {
@@ -217,8 +227,16 @@ bool IsWordSkippable(const QStringRef &word) {
 	if (!systemScripts.size()) {
 		std::vector<QString> languages;
 		Platform::Spellchecker::KnownLanguages(&languages);
-		systemScripts = languages | ranges::views::transform(
-				LocaleToScriptCode) | ranges::to_vector;
+		systemScripts = (
+			languages
+		) | ranges::views::transform(
+			LocaleToScriptCode
+		) | ranges::views::unique | ranges::views::filter(
+			IsSpellcheckableScripts
+		) | ranges::to_vector;
+		if (systemScripts.empty()) {
+			systemScripts = { QChar::Script_Common };
+		}
 	}
 	const auto wordScript = WordScript(word);
 	if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
