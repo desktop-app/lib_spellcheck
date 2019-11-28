@@ -10,6 +10,7 @@
 #include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
 #include "ui/text/text_entity.h"
+#include "ui/text/text_utilities.h"
 #include "ui/ui_utility.h"
 
 namespace ph {
@@ -35,6 +36,12 @@ constexpr auto kColdSpellcheckingTimeout = crl::time(1000);
 
 constexpr auto kMaxDeadKeys = 1;
 
+constexpr auto kSkippableFlags = 0
+	| TextParseLinks
+	| TextParseMentions
+	| TextParseHashtags
+	| TextParseBotCommands;
+
 const auto kKeysToCheck = {
 	Qt::Key_Up,
 	Qt::Key_Down,
@@ -45,8 +52,6 @@ const auto kKeysToCheck = {
 	Qt::Key_Home,
 	Qt::Key_End,
 };
-
-const auto kSlashes = QString("://");
 
 inline int EndOfWord(const MisspelledWord &range) {
 	return range.first + range.second;
@@ -73,6 +78,10 @@ inline bool IntersectsWordRanges(
 	return !(l1 > r2 || l2 > r1);
 }
 
+inline bool IntersectsWordRanges(const EntityInText &e,	int pos2, int len2) {
+	return IntersectsWordRanges({ e.offset(), e.length() }, pos2, len2);
+}
+
 inline bool IsTagUnspellcheckable(const QString &tag) {
 	if (tag.isEmpty()) {
 		return false;
@@ -96,62 +105,16 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	return false;
 }
 
-inline bool IsMentionText(QStringView text, int position) {
-	Assert(position < text.size());
-	if (position < 1) {
-		return false;
-	}
-	// If there is the '@' in front of the word, it's probably a mention.
-	// const auto beforeAt = (position == 1)
-	// 	? QChar()
-	// 	: text[position - 2];
-
-	return (text[position - 1] == '@');
-		// && !(beforeAt.isLetterOrNumber() || beforeAt == '_'));
+inline auto FindEntities(const QString &text) {
+	return TextUtilities::ParseEntities(text, kSkippableFlags).entities;
 }
 
-inline auto FindUrl(QStringView text, int index) {
-	if (text.isNull()) {
-		return MisspelledWord();
-	}
-
-	auto startUrl = index - 1;
-	while (startUrl > 0 && !text[startUrl].isSpace()) {
-		startUrl--;
-	}
-
-	auto endUrl = index + kSlashes.length();
-	const auto textLength = text.length();
-	while (endUrl < textLength && !text[endUrl].isSpace()) {
-		endUrl++;
-	}
-	startUrl++;
-	endUrl -= startUrl;
-	return MisspelledWord(startUrl, endUrl);
-}
-
-inline auto FindUrls(const QString &text) {
-	if (text.isEmpty()) {
-		return MisspelledWords();
-	}
-
-	auto urls = MisspelledWords();
-	auto i = 0;
-	while ((i = text.indexOf(kSlashes, i)) != -1) {
-		if (i > 0 && text[i - 1].isLetterOrNumber()) {
-			const auto url = FindUrl(text, i);
-			i = url.first + url.second;
-			urls.push_back(url);
-		} else {
-			++i;
-		}
-	}
-	return urls;
-}
-
-inline auto IntersectsAnyOfRanges(int pos, int len, MisspelledWords ranges) {
-	return !ranges.empty() && ranges::any_of(ranges, [&](const auto &range) {
-		return IntersectsWordRanges(range, pos, len);
+inline auto IntersectsAnyOfEntities(
+	int pos,
+	int len,
+	EntitiesInText entities) {
+	return !entities.empty() && ranges::any_of(entities, [&](const auto &e) {
+		return IntersectsWordRanges(e, pos, len);
 	});
 }
 
@@ -400,9 +363,6 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 	if (hasUnspellcheckableTag(position, length)) {
 		return true;
 	}
-	if (IsMentionText(documentText(), position)) {
-		return true;
-	}
 	const auto ref = documentText().midRef(position, length);
 	if (ref.isNull()) {
 		return true;
@@ -517,7 +477,7 @@ void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
 					return w.first >= posOfWord;
 				}),
 				singleWord);
-			rehighlightBlock(document()->findBlock(posOfWord));
+			rehighlightBlock(findBlock(posOfWord));
 		});
 	});
 }
@@ -525,7 +485,7 @@ void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
 bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 	// This method is called only in the context of separate words,
 	// so it is not supposed that the word can be in more than one block.
-	const auto block = document()->findBlock(begin);
+	const auto block = findBlock(begin);
 	length = std::min(block.position() + block.length() - begin, length);
 	for (auto it = block.begin(); !(it.atEnd()); ++it) {
 		const auto fragment = it.fragment();
@@ -561,7 +521,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty() || !_enabled || text.isEmpty()) {
 		return;
 	}
-	const auto urls = FindUrls(text);
+	const auto entities = FindEntities(text);
 	const auto bPos = currentBlock().position();
 	const auto bLen = currentBlock().length();
 	ranges::for_each((
@@ -571,7 +531,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 		return IntersectsWordRanges(range, bPos, bLen);
 	}), [&](const auto &range) {
 		const auto posInBlock = range.first - bPos;
-		if (IntersectsAnyOfRanges(posInBlock, range.second, urls)) {
+		if (IntersectsAnyOfEntities(posInBlock, range.second, entities)) {
 			return;
 		}
 		setFormat(posInBlock, range.second, _misspelledFormat);
@@ -650,11 +610,15 @@ int SpellingHighlighter::size() {
 	return document()->characterCount() - 1;
 }
 
+QTextBlock SpellingHighlighter::findBlock(int pos) {
+	return document()->findBlock(pos);
+}
+
 std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
 	int pos,
 	int length) {
 
-	auto b = document()->findBlock(pos);
+	auto b = findBlock(pos);
 	auto blocks = std::vector<QTextBlock>{b};
 	const auto end = pos + length;
 	while (!b.contains(end) && (b != document()->end())) {
@@ -689,9 +653,10 @@ void SpellingHighlighter::addSpellcheckerActions(
 	{
 		const auto p = cursorForPosition.selectionStart();
 		const auto l = cursorForPosition.selectionEnd() - p;
+		const auto e = FindEntities(findBlock(p).text());
 		if (!l
 			|| isSkippableWord(p, l)
-			|| IntersectsAnyOfRanges(p, l, FindUrls(documentText()))) {
+			|| IntersectsAnyOfEntities(p, l, e)) {
 			showMenuCallback();
 			return;
 		}

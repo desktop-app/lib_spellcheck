@@ -99,6 +99,7 @@ private:
 	std::vector<QTextBlock> blocksFromRange(int pos, int length);
 
 	int size();
+	QTextBlock findBlock(int pos);
 
 	int _countOfCheckingTextAsync = 0;
 
@@ -106,6 +107,7 @@ private:
 	QTextCursor _cursor;
 
 	MisspelledWords _cachedRanges;
+	EntitiesInText _cachedSkippableEntities;
 
 	int _addedSymbols = 0;
 	int _removedSymbols = 0;
