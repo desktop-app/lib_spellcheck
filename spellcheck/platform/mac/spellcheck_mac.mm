@@ -41,8 +41,11 @@ bool IsAvailable() {
 }
 
 void KnownLanguages(std::vector<QString> *langCodes) {
-	QStringList result = QLocale::system().uiLanguages();
-	langCodes->assign(result.begin(), result.end());
+	const auto langs = [SharedSpellChecker() userPreferredLanguages];
+	langCodes->reserve([langs count]);
+	for (NSString *l in langs) {
+		langCodes->push_back(NS2QString(l));
+	}
 }
 
 bool CheckSpelling(const QString &wordToCheck) {

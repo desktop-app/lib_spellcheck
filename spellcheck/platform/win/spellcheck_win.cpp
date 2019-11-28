@@ -11,6 +11,7 @@
 
 #include <QtCore/QDir>
 #include <QtCore/QLocale>
+#include <QVector>
 
 #include "base/platform/base_platform_info.h"
 
@@ -26,15 +27,10 @@ inline LPCWSTR Q2WString(QStringView string) {
 
 inline auto SystemLanguages() {
 	const auto appdata = qEnvironmentVariable("appdata");
-	// Probably never gonna be empty.
-	if (appdata.isEmpty()) {
-		return QLocale::system().uiLanguages();
-	}
 	const auto dir = QDir(appdata + QString("\\Microsoft\\Spelling"));
-	if (!dir.exists()) {
-		return QLocale::system().uiLanguages();
-	}
-	return dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+	return (dir.exists()
+		? dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)
+		: QLocale::system().uiLanguages()).toVector().toStdVector();
 }
 
 // WindowsSpellChecker class is used to store all the COM objects and
@@ -55,18 +51,21 @@ public:
 	void checkSpellingText(
 		LPCWSTR text,
 		MisspelledWords *misspelledWordRanges);
+	std::vector<QString> systemLanguages();
 
 private:
 	void createFactory();
 	bool isLanguageSupported(const LPCWSTR& lang);
 	void createSpellCheckers();
 
+	std::vector<QString> _systemLanguages;
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
 	std::map<QString, ComPtr<ISpellChecker>> _spellcheckerMap;
 
 };
 
 WindowsSpellChecker::WindowsSpellChecker() {
+	_systemLanguages = SystemLanguages();
 	createFactory();
 	createSpellCheckers();
 }
@@ -83,7 +82,7 @@ void WindowsSpellChecker::createSpellCheckers() {
 	if (!_spellcheckerFactory) {
 		return;
 	}
-	for (const auto &lang : SystemLanguages()) {
+	for (const auto &lang : _systemLanguages) {
 		const auto wlang = Q2WString(lang);
 		if (!isLanguageSupported(wlang)) {
 			continue;
@@ -242,6 +241,10 @@ void WindowsSpellChecker::ignoreWord(LPCWSTR word) {
 	}
 }
 
+std::vector<QString> WindowsSpellChecker::systemLanguages() {
+	return _systemLanguages;
+}
+
 ////// End of WindowsSpellChecker class.
 
 std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
@@ -256,8 +259,7 @@ bool IsAvailable() {
 }
 
 void KnownLanguages(std::vector<QString> *langCodes) {
-	QStringList result = QLocale::system().uiLanguages();
-	langCodes->assign(result.begin(), result.end());
+	*langCodes = SharedSpellChecker()->systemLanguages();
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
