@@ -1,4 +1,6 @@
 <(src_loc)/spellcheck/platform/platform_spellcheck.h
+<(src_loc)/spellcheck/platform/linux/linux_enchant.cpp
+<(src_loc)/spellcheck/platform/linux/linux_enchant.h
 <(src_loc)/spellcheck/platform/linux/spellcheck_linux.cpp
 <(src_loc)/spellcheck/platform/linux/spellcheck_linux.h
 <(src_loc)/spellcheck/platform/mac/spellcheck_mac.h

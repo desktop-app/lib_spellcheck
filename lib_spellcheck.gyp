@@ -64,6 +64,10 @@
       'include_dirs': [
         '/usr/local/macold/include/c++/v1',
       ],
+    }], [ 'build_linux', {
+      'cflags_cc': [
+        '<!(pkg-config --cflags enchant)',
+      ],
     }]],
   }],
 }

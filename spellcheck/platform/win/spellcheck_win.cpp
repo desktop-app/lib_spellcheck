@@ -260,6 +260,15 @@ std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
 
 } // namespace
 
+bool IsAvailable() {
+	return IsWindows8OrGreater();
+}
+
+void KnownLanguages(std::vector<QString> *langCodes) {
+	QStringList result = QLocale::system().uiLanguages();
+	langCodes->assign(result.begin(), result.end());
+}
+
 bool CheckSpelling(const QString &wordToCheck) {
 	// Windows 7 does not support spellchecking.
 	// https://docs.microsoft.com/en-us/windows/win32/api/spellcheck/nn-spellcheck-ispellchecker

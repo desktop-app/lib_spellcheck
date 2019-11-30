@@ -5,8 +5,8 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 #include "spellcheck/spellcheck_utils.h"
+#include "spellcheck/platform/platform_spellcheck.h"
 
-#include <QtCore/QLocale>
 #include <QtCore/QStringList>
 #include <QTextBoundaryFinder>
 
@@ -192,8 +192,9 @@ inline auto IsAcuteAccentChar(const QChar &c) {
 } // namespace
 
 QChar::Script LocaleToScriptCode(const QString &locale) {
+	int index = std::max(locale.indexOf('_'), locale.indexOf('-'));
 	for (const auto &kv : kLocaleScriptList) {
-		if (locale.split('-')[0] == kv.subtag) {
+		if (locale.left(index) == kv.subtag) {
 			return kv.script;
 		}
 	}
@@ -214,9 +215,10 @@ QChar::Script WordScript(const QStringRef &word) {
 bool IsWordSkippable(const QStringRef &word) {
 	static auto systemScripts = std::vector<QChar::Script>();
 	if (!systemScripts.size()) {
-		for (const auto &lang : QLocale::system().uiLanguages()) {
-			systemScripts.push_back(LocaleToScriptCode(lang));
-		}
+		std::vector<QString> languages;
+		Platform::Spellchecker::KnownLanguages(&languages);
+		systemScripts = languages | ranges::views::transform(
+				LocaleToScriptCode) | ranges::to_vector;
 	}
 	const auto wordScript = WordScript(word);
 	if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
