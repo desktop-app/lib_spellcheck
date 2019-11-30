@@ -36,6 +36,14 @@ NSSpellChecker *SharedSpellChecker() {
 
 namespace Platform::Spellchecker {
 
+bool IsAvailable() {
+	return true;
+}
+
+void KnownLanguages(std::vector<QString> *langCodes) {
+	QStringList result = QLocale::system().uiLanguages();
+	langCodes->assign(result.begin(), result.end());
+}
 
 bool CheckSpelling(const QString &wordToCheck) {
 	const auto wordLength = wordToCheck.length();
