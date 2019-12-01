@@ -627,7 +627,7 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 	} else if (e->type() == QEvent::KeyPress) {
 		const auto k = static_cast<QKeyEvent *>(e);
 
-		if (ranges::find(kKeysToCheck, k->key()) != kKeysToCheck.end()) {
+		if (ranges::contains(kKeysToCheck, k->key())) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
 				checkCurrentText();
 			}

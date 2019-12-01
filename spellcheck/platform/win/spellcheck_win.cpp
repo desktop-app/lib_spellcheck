@@ -212,8 +212,7 @@ void WindowsSpellChecker::checkSpellingText(
 			}
 			const auto word = std::pair((int) startIndex, (int) errorLength);
 			if (misspelledWords.empty()
-				|| (ranges::find(misspelledWords, word)
-					!= misspelledWords.end())) {
+				|| ranges::contains(misspelledWords, word)) {
 				tempMisspelled.push_back(std::move(word));
 			}
 		}

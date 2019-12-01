@@ -193,12 +193,11 @@ constexpr SubtagScript kLocaleScriptList[] = {
 };
 
 inline auto IsAcuteAccentChar(const QChar &c) {
-	return ranges::find(kAcuteAccentChars, c) != end(kAcuteAccentChars);
+	return ranges::contains(kAcuteAccentChars, c);
 }
 
 inline auto IsSpellcheckableScripts(const QChar::Script &s) {
-	return ranges::find(kUnspellcheckableScripts, s)
-		== end(kUnspellcheckableScripts);
+	return !ranges::contains(kUnspellcheckableScripts, s);
 }
 
 } // namespace
