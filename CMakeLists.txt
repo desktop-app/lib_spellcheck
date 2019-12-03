@@ -10,7 +10,8 @@ init_target(lib_spellcheck)
 
 get_filename_component(src_loc . REALPATH)
 
-set(lib_spellcheck_sources
+target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
+nice_target_sources(lib_spellcheck ${src_loc}
 PRIVATE
     spellcheck/platform/platform_spellcheck.h
     spellcheck/platform/linux/spellcheck_linux.cpp
@@ -25,9 +26,6 @@ PRIVATE
     spellcheck/spelling_highlighter.cpp
     spellcheck/spelling_highlighter.h
 )
-nice_target_sources(lib_spellcheck ${src_loc} "${lib_spellcheck_sources}")
-
-target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
 
 target_include_directories(lib_spellcheck
 PUBLIC
