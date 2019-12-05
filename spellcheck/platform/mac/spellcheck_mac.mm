@@ -32,6 +32,19 @@ NSSpellChecker *SharedSpellChecker() {
 	}
 }
 
+inline auto SystemLanguages() {
+	static auto languages = std::vector<QString>();
+	if (!languages.size()) {
+		const auto uiLanguages = QLocale::system().uiLanguages();
+		languages = (
+			uiLanguages
+		) | ranges::view::transform([&](const auto &lang) {
+			return lang.left(std::max(lang.indexOf('_'), lang.indexOf('-')));
+		}) | ranges::views::unique | ranges::to_vector;
+	}
+	return languages;
+}
+
 } // namespace
 
 namespace Platform::Spellchecker {
@@ -41,11 +54,7 @@ bool IsAvailable() {
 }
 
 void KnownLanguages(std::vector<QString> *langCodes) {
-	const auto langs = [SharedSpellChecker() userPreferredLanguages];
-	langCodes->reserve([langs count]);
-	for (NSString *l in langs) {
-		langCodes->push_back(NS2QString(l));
-	}
+	*langCodes = SystemLanguages();
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
@@ -118,22 +127,14 @@ void FillSuggestionList(
 	};
 
 	auto wordCounter = 0;
-	const auto wordScript = ::Spellchecker::WordScript(wrongWord.midRef(0));
+	const auto wordScript = ::Spellchecker::WordScript(&wrongWord);
 	optionalSuggestions->reserve(kMaxSuggestions);
-	auto hasEnglish = false;
 
 	// for (NSString *lang in [SharedSpellChecker() availableLanguages]) {
-	for (const auto &lang : QLocale::system().uiLanguages()) {
-		const auto isEn = lang.startsWith("en");
-		if (hasEnglish && isEn) {
-			continue;
-		} else {
-			hasEnglish = isEn;
-		}
+	for (const auto &lang : SystemLanguages()) {
 		if (wordScript != ::Spellchecker::LocaleToScriptCode(lang)) {
 			continue;
 		}
-
 		for (NSString *guess in guesses(Q2NSString(lang))) {
 			optionalSuggestions->push_back(NS2QString(guess));
 			if (++wordCounter >= kMaxSuggestions) {
