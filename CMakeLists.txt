@@ -14,6 +14,8 @@ target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellchec
 nice_target_sources(lib_spellcheck ${src_loc}
 PRIVATE
     spellcheck/platform/platform_spellcheck.h
+    spellcheck/platform/linux/linux_enchant.cpp
+    spellcheck/platform/linux/linux_enchant.h
     spellcheck/platform/linux/spellcheck_linux.cpp
     spellcheck/platform/linux/spellcheck_linux.h
     spellcheck/platform/mac/spellcheck_mac.h
@@ -36,3 +38,10 @@ target_link_libraries(lib_spellcheck
 PUBLIC
     desktop-app::lib_ui
 )
+
+if (LINUX)
+    find_package(PkgConfig REQUIRED)
+
+    pkg_check_modules(ENCHANT REQUIRED enchant)
+    target_include_directories(lib_spellcheck PRIVATE ${ENCHANT_INCLUDE_DIRS})
+endif()
