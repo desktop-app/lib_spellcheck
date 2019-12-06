@@ -14,6 +14,7 @@
 #include "ui/widgets/input_fields.h"
 
 #include <QtGui/QSyntaxHighlighter>
+#include <QtGui/QTextBlock>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QTextEdit>
 
@@ -76,22 +77,37 @@ private:
 	void checkText(const QString &text);
 
 	void invokeCheckText(
-		const QString &text,
-		Fn<void(const MisspelledWords &ranges)> callback,
-		int rangesOffset = 0);
+		int textPosition,
+		int textLength,
+		Fn<void(const MisspelledWords &ranges)> callback);
 
 	void checkChangedText();
-	bool checkSingleWord(const MisspelledWord &range);
+	void checkSingleWord(const MisspelledWord &singleWord);
 	MisspelledWords filterSkippableWords(MisspelledWords &ranges);
+	bool isSkippableWord(const MisspelledWord &range);
+	bool isSkippableWord(int position, int length);
 
 	bool hasUnspellcheckableTag(int begin, int length);
 	MisspelledWord getWordUnderPosition(int position);
+
 	QString documentText();
+	void updateDocumentText();
+	QString partDocumentText(int pos, int length);
+	int compareDocumentText(const QString &text, int textPos, int textLen);
+	QString _lastPlainText;
+
+	std::vector<QTextBlock> blocksFromRange(int pos, int length);
+
+	int size();
+	QTextBlock findBlock(int pos);
+
+	int _countOfCheckingTextAsync = 0;
 
 	QTextCharFormat _misspelledFormat;
 	QTextCursor _cursor;
 
 	MisspelledWords _cachedRanges;
+	EntitiesInText _cachedSkippableEntities;
 
 	int _addedSymbols = 0;
 	int _removedSymbols = 0;

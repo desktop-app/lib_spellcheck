@@ -5,8 +5,8 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 #include "spellcheck/spellcheck_utils.h"
+#include "spellcheck/platform/platform_spellcheck.h"
 
-#include <QtCore/QLocale>
 #include <QtCore/QStringList>
 #include <QTextBoundaryFinder>
 
@@ -21,9 +21,14 @@ struct SubtagScript {
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
 constexpr auto kAcuteAccentChars = {
-	QChar(769),	QChar(833),	QChar(180),
+	QChar(769),	QChar(833),	// QChar(180),
 	QChar(714),	QChar(779),	QChar(733),
 	QChar(758),	QChar(791),	QChar(719),
+};
+
+constexpr auto kUnspellcheckableScripts = {
+	QChar::Script_Katakana,
+	QChar::Script_Han,
 };
 
 constexpr SubtagScript kLocaleScriptList[] = {
@@ -189,11 +194,18 @@ inline auto IsAcuteAccentChar(const QChar &c) {
 	return ranges::find(kAcuteAccentChars, c) != end(kAcuteAccentChars);
 }
 
+inline auto IsSpellcheckableScripts(const QChar::Script &s) {
+	return ranges::find(kUnspellcheckableScripts, s)
+		== end(kUnspellcheckableScripts);
+}
+
 } // namespace
 
 QChar::Script LocaleToScriptCode(const QString &locale) {
+	const auto subtag = locale.left(
+		std::max(locale.indexOf('_'), locale.indexOf('-')));
 	for (const auto &kv : kLocaleScriptList) {
-		if (locale.split('-')[0] == kv.subtag) {
+		if (subtag == kv.subtag) {
 			return kv.script;
 		}
 	}
@@ -205,17 +217,25 @@ QChar::Script WordScript(const QStringRef &word) {
 	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
 		return c.isLetter();
 	});
-	if (firstLetter == word.end()) {
-		return QChar::Script_Common;
-	}
-	return firstLetter->script();
+	return firstLetter == word.end()
+		? QChar::Script_Common
+		: firstLetter->script();
 }
 
 bool IsWordSkippable(const QStringRef &word) {
 	static auto systemScripts = std::vector<QChar::Script>();
 	if (!systemScripts.size()) {
-		for (const auto &lang : QLocale::system().uiLanguages()) {
-			systemScripts.push_back(LocaleToScriptCode(lang));
+		std::vector<QString> languages;
+		Platform::Spellchecker::KnownLanguages(&languages);
+		systemScripts = (
+			languages
+		) | ranges::views::transform(
+			LocaleToScriptCode
+		) | ranges::views::unique | ranges::views::filter(
+			IsSpellcheckableScripts
+		) | ranges::to_vector;
+		if (systemScripts.empty()) {
+			systemScripts = { QChar::Script_Common };
 		}
 	}
 	const auto wordScript = WordScript(word);
@@ -246,8 +266,8 @@ MisspelledWords RangesFromText(
 	};
 
 	while (finder.position() < text.length()) {
-		if (!(finder.boundaryReasons().testFlag(
-				QTextBoundaryFinder::StartOfItem))) {
+		if (!finder.boundaryReasons().testFlag(
+				QTextBoundaryFinder::StartOfItem)) {
 			if (isEnd()) {
 				break;
 			}
@@ -263,17 +283,15 @@ MisspelledWords RangesFromText(
 		if (length < 1) {
 			continue;
 		}
-		ranges.push_back(std::make_pair(start, length));
+		if (!filterCallback(text.mid(start, length))) {
+			ranges.push_back(std::make_pair(start, length));
+		}
 
 		if (isEnd()) {
 			break;
 		}
 	}
-	return ranges::view::all(
-		ranges
-	) | ranges::view::filter([&](const auto &range) {
-		return !filterCallback(text.mid(range.first, range.second));
-	}) | ranges::to_vector;
+	return ranges;
 }
 
 } // namespace Spellchecker
