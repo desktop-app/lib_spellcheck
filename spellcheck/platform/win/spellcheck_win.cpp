@@ -117,6 +117,9 @@ void WindowsSpellChecker::fillSuggestionList(
 	for (const auto &[_, spellchecker] : _spellcheckerMap) {
 		ComPtr<IEnumString> suggestions;
 		HRESULT hr = spellchecker->Suggest(wrongWord, &suggestions);
+		if (hr != S_OK) {
+			continue;
+		}
 
 		while (true) {
 			wchar_t* suggestion = nullptr;
