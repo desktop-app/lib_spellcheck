@@ -49,6 +49,9 @@ inline auto SystemLanguages() {
 
 namespace Platform::Spellchecker {
 
+void Init() {
+}
+
 bool IsAvailable() {
 	return true;
 }

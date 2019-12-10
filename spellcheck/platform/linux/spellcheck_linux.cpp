@@ -132,6 +132,9 @@ bool EnchantSpellChecker::isWordInDictionary(const QString &word) {
 
 } // namespace
 
+void Init() {
+}
+
 bool IsAvailable() {
 	return EnchantSpellChecker::instance()->isAvailable();
 }

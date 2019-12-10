@@ -157,6 +157,9 @@ SpellingHighlighter::SpellingHighlighter(
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _field(field)
 , _textEdit(field->rawTextEdit()) {
+#ifdef Q_OS_WIN
+	Platform::Spellchecker::Init();
+#endif
 
 	_textEdit->installEventFilter(this);
 	_textEdit->viewport()->installEventFilter(this);

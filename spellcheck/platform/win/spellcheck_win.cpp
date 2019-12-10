@@ -224,7 +224,7 @@ void WindowsSpellChecker::checkSpellingText(
 
 void WindowsSpellChecker::addWord(LPCWSTR word) {
 	for (const auto &[_, spellchecker] : _spellcheckerMap) {
-		spellchecker->Add(Q2WString(word));
+		spellchecker->Add(word);
 	}
 }
 
@@ -233,14 +233,14 @@ void WindowsSpellChecker::removeWord(LPCWSTR word) {
 		ComPtr<ISpellChecker2> spellchecker2;
 		spellchecker->QueryInterface(IID_PPV_ARGS(&spellchecker2));
 		if (spellchecker2) {
-			spellchecker2->Remove(Q2WString(word));
+			spellchecker2->Remove(word);
 		}
 	}
 }
 
 void WindowsSpellChecker::ignoreWord(LPCWSTR word) {
 	for (const auto &[_, spellchecker] : _spellcheckerMap) {
-		spellchecker->Ignore(Q2WString(word));
+		spellchecker->Ignore(word);
 	}
 }
 
@@ -256,6 +256,15 @@ std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
 }
 
 } // namespace
+
+// TODO: Add a better work with the Threading Models.
+// All COM objects should be created asynchronously
+// if we want to work with them asynchronously.
+// Some calls can be made in the main thread before spellchecking
+// (e.g. KnownLanguages), so we have to init it asynchronously first.
+void Init() {
+	crl::async(SharedSpellChecker);
+}
 
 bool IsAvailable() {
 	return IsWindows8OrGreater();
