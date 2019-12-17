@@ -212,6 +212,20 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			// The plain text of the document cannot contain dead keys.
 			if (!diff) {
 				if (!oldText.compare(newText, Qt::CaseSensitive)) {
+					const auto c = RangeFromCursorSelection(
+						_textEdit->textCursor());
+					// If the cursor has a selection for the entire text,
+					// we probably just changed its formatting.
+					// So if we find the unspellcheckable tag,
+					// we can clear cached ranges of misspelled words.
+					if (!c.first && c.second == size()) {
+						if (hasUnspellcheckableTag(pos, added)) {
+							_cachedRanges.clear();
+							rehighlight();
+						} else {
+							checkCurrentText();
+						}
+					}
 					return;
 				}
 			} else if (diff > 0 && diff <= kMaxDeadKeys) {
