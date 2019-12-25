@@ -66,7 +66,7 @@
       ],
     }], [ 'build_linux', {
       'cflags_cc': [
-        '<!(pkg-config --cflags enchant)',
+        '<!(pkg-config --silence-errors --cflags enchant-2 || pkg-config --cflags enchant)',
       ],
     }]],
   }],
