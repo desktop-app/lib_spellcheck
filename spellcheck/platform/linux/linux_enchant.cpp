@@ -218,6 +218,7 @@ bool enchant::loader::do_explicit_linking () {
 	if (load_status == NotLoadedYet) {
 		load_status = LoadFailed;
 		void * handle = dlopen ("libenchant.so.1", RTLD_NOW)
+				?: dlopen ("libenchant-2.so.2", RTLD_NOW)
 				?: dlopen ("libenchant.so.2", RTLD_NOW);
 		if (!handle) {
 			// logs ?
