@@ -620,7 +620,7 @@ QString SpellingHighlighter::documentText() {
 }
 
 void SpellingHighlighter::updateDocumentText() {
-	_lastPlainText = document()->toPlainText();
+	_lastPlainText = document()->toRawText();
 }
 
 QString SpellingHighlighter::partDocumentText(int pos, int length) {
