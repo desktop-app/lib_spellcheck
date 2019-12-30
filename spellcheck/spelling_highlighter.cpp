@@ -181,6 +181,22 @@ SpellingHighlighter::SpellingHighlighter(
 		contentsChange(pos, removed, added);
 	}, _lifetime);
 
+	_field->markdownTagApplies(
+	) | rpl::start_with_next([=](auto markdownTag) {
+		if (!IsTagUnspellcheckable(markdownTag.tag)) {
+			return;
+		}
+		_cachedRanges = (
+			_cachedRanges
+		) | ranges::view::filter([&](const auto &range) {
+			return !IntersectsWordRanges(
+				range,
+				markdownTag.internalStart,
+				markdownTag.internalLength);
+		});
+		rehighlight();
+	}, _lifetime);
+
 	std::move(
 		enabled
 	) | rpl::start_with_next([=](bool value) {
