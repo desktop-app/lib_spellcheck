@@ -214,16 +214,24 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	}
 
 	{
-		const auto oldText = documentText();
+		const auto oldText = documentText().mid(
+			pos,
+			documentText().indexOf(QChar::ParagraphSeparator, pos));
 		updateDocumentText();
+
+		const auto b = findBlock(pos);
+		const auto bLen = (document()->blockCount() > 1)
+			? b.length()
+			: b.text().size();
+
 		// This is a workaround for typing accents.
 		// For example, when the user press the dead key (e.g. ` or ´),
 		// Qt sends wrong values. E.g. if a text length is 100,
 		// then values will be 0, 100, 100.
 		// This invokes to re-check the entire text.
 		// The Mac's accent menu has a pretty similar behavior.
-		if (!pos && (size() == added)) {
-			const auto newText = documentText();
+		if ((b.position() == pos) && (bLen == added)) {
+			const auto newText = b.text();
 			const auto diff = added - removed;
 			// The plain text of the document cannot contain dead keys.
 			if (!diff) {
@@ -234,7 +242,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 					// we probably just changed its formatting.
 					// So if we find the unspellcheckable tag,
 					// we can clear cached ranges of misspelled words.
-					if (!c.first && c.second == size()) {
+					if (!c.first && c.second == bLen) {
 						if (hasUnspellcheckableTag(pos, added)) {
 							_cachedRanges.clear();
 							rehighlight();
@@ -247,7 +255,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			} else if (diff > 0 && diff <= kMaxDeadKeys) {
 				const auto [p, l] = CorrectAccentValues(oldText, newText);
 				if (l) {
-					pos = p;
+					pos = p + b.position();
 					added = l;
 					removed = 0;
 				}
