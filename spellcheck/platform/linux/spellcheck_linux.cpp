@@ -11,6 +11,7 @@
 #include "spellcheck/platform/linux/linux_enchant.h"
 
 #include "spellcheck/platform/linux/spellcheck_linux.h"
+#include "base/integration.h"
 
 namespace Platform::Spellchecker {
 namespace {
@@ -59,7 +60,11 @@ EnchantSpellChecker::EnchantSpellChecker() {
 		// no first dictionary found
 	}
 	for (const std::string &language : langs) {
-		_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
+		try {
+			_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
+		} catch (const enchant::Exception &e) {
+			base::Integration::Instance().logMessage(QString("Catch after request_dict: ") + e.what());
+		}
 	}
 }
 
@@ -80,8 +85,13 @@ auto EnchantSpellChecker::knownLanguages() {
 
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
 	auto w = word.toStdString();
-	return ranges::any_of(_validators, [&w](const auto &validator) {
-		return validator->check(w);
+	return ranges::any_of(_validators, [&](const auto &validator) {
+		try {
+			return validator->check(w);
+		} catch (const enchant::Exception &e) {
+			base::Integration::Instance().logMessage(QString("Catch after check '") + word + "': " + e.what());
+			return true;
+		}
 	}) || _validators.empty();
 }
 

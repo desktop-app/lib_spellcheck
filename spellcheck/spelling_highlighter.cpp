@@ -186,14 +186,14 @@ SpellingHighlighter::SpellingHighlighter(
 		if (!IsTagUnspellcheckable(markdownTag.tag)) {
 			return;
 		}
-		_cachedRanges = (
+		_cachedRanges = ranges::view::all(
 			_cachedRanges
 		) | ranges::view::filter([&](const auto &range) {
 			return !IntersectsWordRanges(
 				range,
 				markdownTag.internalStart,
 				markdownTag.internalLength);
-		});
+		}) | ranges::to_vector;
 		rehighlight();
 	}, _lifetime);
 
