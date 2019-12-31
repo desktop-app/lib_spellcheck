@@ -203,6 +203,7 @@ SpellingHighlighter::SpellingHighlighter(
 		setEnabled(value);
 	}, _lifetime);
 
+	updateDocumentText();
 	checkCurrentText();
 }
 
