@@ -173,7 +173,12 @@ SpellingHighlighter::SpellingHighlighter(
 
 	// Use the patched SpellCheckUnderline style.
 	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
-	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
+	style::PaletteChanged(
+	) | rpl::start_with_next([=] {
+		updatePalette();
+		rehighlight();
+	}, _lifetime);
+	updatePalette();
 
 	_field->documentContentsChanges(
 	) | rpl::start_with_next([=](const auto &value) {
@@ -205,6 +210,10 @@ SpellingHighlighter::SpellingHighlighter(
 
 	updateDocumentText();
 	checkCurrentText();
+}
+
+void SpellingHighlighter::updatePalette() {
+	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {

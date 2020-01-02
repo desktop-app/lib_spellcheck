@@ -73,6 +73,7 @@ protected:
 	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
+	void updatePalette();
 	void setEnabled(bool enabled);
 	void checkText(const QString &text);
 
