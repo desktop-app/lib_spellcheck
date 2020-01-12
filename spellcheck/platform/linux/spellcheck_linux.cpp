@@ -16,6 +16,22 @@
 namespace Platform::Spellchecker {
 namespace {
 
+constexpr auto kHspell = "hspell";
+
+using DictPtr = std::unique_ptr<enchant::Dict>;
+
+auto CheckProvider(DictPtr &validator, const std::string &provider) {
+	auto p = validator->get_provider_name();
+	std::transform(begin(p), end(p), begin(p), ::tolower);
+	return (p.find(provider) == 0); // startsWith.
+}
+
+auto IsHebrew(const QString &word) {
+	// Words with mixed scripts will be automatically ignored,
+	// so this check should be fine.
+	return ::Spellchecker::WordScript(&word) == QChar::Script_Hebrew;
+}
+
 class EnchantSpellChecker {
 public:
 	bool isAvailable();
@@ -34,7 +50,9 @@ private:
 	EnchantSpellChecker& operator =(const EnchantSpellChecker&) = delete;
 
 	std::unique_ptr<enchant::Broker> _brokerHandle;
-	std::vector<std::unique_ptr<enchant::Dict>> _validators;
+	std::vector<DictPtr> _validators;
+
+	std::vector<not_null<enchant::Dict*>> _hspells;
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
@@ -50,7 +68,6 @@ EnchantSpellChecker::EnchantSpellChecker() {
 			void *our_payload) {
 		static_cast<decltype(langs)*>(our_payload)->insert(language);
 	}, &langs);
-	using DictPtr = std::unique_ptr<enchant::Dict>;
 	_validators.reserve(langs.size());
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
@@ -61,7 +78,14 @@ EnchantSpellChecker::EnchantSpellChecker() {
 	}
 	for (const std::string &language : langs) {
 		try {
-			_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
+			auto validator = DictPtr(_brokerHandle->request_dict(language));
+			if (!validator) {
+				continue;
+			}
+			if (CheckProvider(validator, kHspell)) {
+				_hspells.push_back(validator.get());
+			}
+			_validators.push_back(std::move(validator));
 		} catch (const enchant::Exception &e) {
 			base::Integration::Instance().logMessage(QString("Catch after request_dict: ") + e.what());
 		}
@@ -85,7 +109,21 @@ auto EnchantSpellChecker::knownLanguages() {
 
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
 	auto w = word.toStdString();
+
+	if (IsHebrew(word) && _hspells.size()) {
+		return ranges::any_of(_hspells, [&](const auto &validator) {
+			return validator->check(w);
+		});
+	}
 	return ranges::any_of(_validators, [&](const auto &validator) {
+		// Hspell is the spell checker that only checks words in Hebrew.
+		// It returns 'true' for any non-Hebrew word,
+		// so we should skip Hspell if a word is not in Hebrew.
+		if (ranges::find_if(_hspells, [&](auto &v) {
+				return v == validator.get();
+			}) != _hspells.end()) {
+			return false;
+		}
 		try {
 			return validator->check(w);
 		} catch (const enchant::Exception &e) {
@@ -98,15 +136,28 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 auto EnchantSpellChecker::findSuggestions(const QString &word) {
 	auto w = word.toStdString();
 	std::vector<QString> result;
-	for (const auto &validator : _validators) {
-		for (const auto &replacement : validator->suggest(w)) {
+
+	const auto convertSuggestions = [&](auto suggestions) {
+		for (const auto &replacement : suggestions) {
+			if (result.size() >= kMaxSuggestions) {
+				break;
+			}
 			if (!replacement.empty()) {
 				result.push_back(replacement.c_str());
 			}
-			if (result.size() >= Platform::Spellchecker::kMaxSuggestions) {
-				break;
+		}
+	};
+
+	if (IsHebrew(word) && _hspells.size()) {
+		for (const auto &h : _hspells) {
+			convertSuggestions(h->suggest(w));
+			if (result.size()) {
+				return result;
 			}
 		}
+	}
+	for (const auto &validator : _validators) {
+		convertSuggestions(validator->suggest(w));
 		if (!result.empty()) {
 			break;
 		}
