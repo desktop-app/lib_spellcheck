@@ -294,4 +294,9 @@ MisspelledWords RangesFromText(
 	return ranges;
 }
 
+bool CheckSkipAndSpell(const QString &word) {
+	return !IsWordSkippable(&word)
+		&& Platform::Spellchecker::CheckSpelling(word);
+}
+
 } // namespace Spellchecker

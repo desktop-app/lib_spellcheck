@@ -111,7 +111,9 @@ void CheckSpellingText(
 // But at the same time "testtttyy" will be marked as misspelled word.
 
 // So we have to manually split the text into words and check them separately.
-	*misspelledWords = ::Spellchecker::RangesFromText(text, CheckSpelling);
+	*misspelledWords = ::Spellchecker::RangesFromText(
+		text,
+		::Spellchecker::CheckSkipAndSpell);
 
 #endif
 }

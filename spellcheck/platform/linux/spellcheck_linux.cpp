@@ -182,7 +182,9 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 void CheckSpellingText(
 		const QString &text,
 		MisspelledWords *misspelledWords) {
-	*misspelledWords = ::Spellchecker::RangesFromText(text, CheckSpelling);
+	*misspelledWords = ::Spellchecker::RangesFromText(
+		text,
+		::Spellchecker::CheckSkipAndSpell);
 }
 
 } // namespace Platform::Spellchecker
