@@ -17,7 +17,12 @@ namespace Platform::Spellchecker {
 namespace {
 
 constexpr auto kHspell = "hspell";
+constexpr auto kMySpell = "myspell";
+constexpr auto kHunspell = "hunspell";
 constexpr auto kOrdering = "hspell,aspell,hunspell,myspell";
+constexpr auto kMaxValidators = 10;
+constexpr auto kMaxMySpellCount = 3;
+constexpr auto kMaxWordLength = 15;
 
 using DictPtr = std::unique_ptr<enchant::Dict>;
 
@@ -75,6 +80,7 @@ EnchantSpellChecker::EnchantSpellChecker() {
 	} catch (const enchant::Exception &e) {
 		// no first dictionary found
 	}
+	auto mySpellCount = 0;
 	for (const std::string &language : langs) {
 		try {
 			_brokerHandle->set_ordering(language, kOrdering);
@@ -85,7 +91,18 @@ EnchantSpellChecker::EnchantSpellChecker() {
 			if (CheckProvider(validator, kHspell)) {
 				_hspells.push_back(validator.get());
 			}
+			if (CheckProvider(validator, kMySpell)
+				|| CheckProvider(validator, kHunspell)) {
+				if (mySpellCount > kMaxMySpellCount) {
+					continue;
+				} else {
+					mySpellCount++;
+				}
+			}
 			_validators.push_back(std::move(validator));
+			if (_validators.size() > kMaxValidators) {
+				break;
+			}
 		} catch (const enchant::Exception &e) {
 			base::Integration::Instance().logMessage(QString("Catch after request_dict: ") + e.what());
 		}
@@ -136,6 +153,9 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 	const auto wordScript = ::Spellchecker::WordScript(&word);
 	auto w = word.toStdString();
 	std::vector<QString> result;
+	if (!_validators.size()) {
+		return result;
+	}
 
 	const auto convertSuggestions = [&](auto suggestions) {
 		for (const auto &replacement : suggestions) {
@@ -147,6 +167,16 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 			}
 		}
 	};
+
+	if (word.size() >= kMaxWordLength) {
+		// The first element is the validator of the system language.
+		auto *v = _validators[0].get();
+		const auto lang = QString::fromStdString(v->get_lang());
+		if (wordScript == ::Spellchecker::LocaleToScriptCode(lang)) {
+			convertSuggestions(v->suggest(w));
+		}
+		return result;
+	}
 
 	if (IsHebrew(word) && _hspells.size()) {
 		for (const auto &h : _hspells) {

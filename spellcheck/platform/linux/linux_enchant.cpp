@@ -48,7 +48,7 @@ struct {
 	decltype (enchant_broker_list_dicts) * broker_list_dicts;
 	decltype (enchant_broker_request_dict) * broker_request_dict;
 	//decltype (enchant_broker_request_pwl_dict) * broker_request_pwl_dict;
-	//decltype (enchant_broker_set_ordering) * broker_set_ordering;
+	decltype (enchant_broker_set_ordering) * broker_set_ordering;
 	decltype (enchant_dict_add) * dict_add;
 	decltype (enchant_dict_add_to_session) * dict_add_to_session;
 	decltype (enchant_dict_check) * dict_check;
@@ -193,9 +193,9 @@ enchant::Dict * enchant::Broker::request_dict (const std::string & lang) {
 //	return false;
 //}
 
-//void enchant::Broker::set_ordering (const std::string & tag, const std::string & ordering) {
-//	f_enchant.broker_set_ordering (m_broker, tag.c_str(), ordering.c_str());
-//}
+void enchant::Broker::set_ordering (const std::string & tag, const std::string & ordering) {
+	f_enchant.broker_set_ordering (m_broker, tag.c_str(), ordering.c_str());
+}
 
 //void enchant::Broker::describe (EnchantBrokerDescribeFn fn, void * user_data) {
 //	f_enchant.broker_describe (m_broker, fn, user_data);
@@ -233,7 +233,7 @@ bool enchant::loader::do_explicit_linking () {
 		GET_SYMBOL_enchant (broker_list_dicts);
 		GET_SYMBOL_enchant (broker_request_dict);
 		//GET_SYMBOL_enchant (broker_request_pwl_dict);
-		//GET_SYMBOL_enchant (broker_set_ordering);
+		GET_SYMBOL_enchant (broker_set_ordering);
 		GET_SYMBOL_enchant (dict_add);
 		GET_SYMBOL_enchant (dict_add_to_session);
 		GET_SYMBOL_enchant (dict_check);
