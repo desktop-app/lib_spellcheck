@@ -35,7 +35,6 @@ auto IsHebrew(const QString &word) {
 
 class EnchantSpellChecker {
 public:
-	bool isAvailable();
 	auto knownLanguages();
 	bool checkSpelling(const QString &word);
 	auto findSuggestions(const QString &word);
@@ -57,8 +56,6 @@ private:
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
-	if (!enchant::loader::do_explicit_linking()) return;
-
 	std::set<std::string> langs;
 	_brokerHandle = std::make_unique<enchant::Broker>();
 	_brokerHandle->list_dicts([](
@@ -98,10 +95,6 @@ EnchantSpellChecker::EnchantSpellChecker() {
 EnchantSpellChecker *EnchantSpellChecker::instance() {
 	static EnchantSpellChecker capsule;
 	return &capsule;
-}
-
-bool EnchantSpellChecker::isAvailable() {
-	return !_validators.empty();
 }
 
 auto EnchantSpellChecker::knownLanguages() {
@@ -208,7 +201,8 @@ void Init() {
 }
 
 bool IsAvailable() {
-	return EnchantSpellChecker::instance()->isAvailable();
+	static auto Available = enchant::loader::do_explicit_linking();
+	return Available;
 }
 
 void KnownLanguages(std::vector<QString> *langCodes) {
