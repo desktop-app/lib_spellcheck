@@ -44,4 +44,6 @@ if (LINUX)
 
     pkg_search_module(ENCHANT REQUIRED enchant-2 enchant)
     target_include_directories(lib_spellcheck PRIVATE ${ENCHANT_INCLUDE_DIRS})
+
+    target_link_libraries(lib_spellcheck PUBLIC desktop-app::external_sonnet)
 endif()
