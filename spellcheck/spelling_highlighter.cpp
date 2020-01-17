@@ -202,14 +202,13 @@ SpellingHighlighter::SpellingHighlighter(
 		rehighlight();
 	}, _lifetime);
 
+	updateDocumentText();
+
 	std::move(
 		enabled
 	) | rpl::start_with_next([=](bool value) {
 		setEnabled(value);
 	}, _lifetime);
-
-	updateDocumentText();
-	checkCurrentText();
 }
 
 void SpellingHighlighter::updatePalette() {
@@ -217,6 +216,9 @@ void SpellingHighlighter::updatePalette() {
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
+	if (!_enabled) {
+		return;
+	}
 	if (document()->isEmpty()) {
 		updateDocumentText();
 		_cachedRanges.clear();
@@ -440,6 +442,9 @@ void SpellingHighlighter::invokeCheckText(
 	int textPosition,
 	int textLength,
 	Fn<void(const MisspelledWords &ranges)> callback) {
+	if (!_enabled) {
+		return;
+	}
 
 	const auto rangesOffset = textPosition;
 	const auto text = partDocumentText(textPosition, textLength);
@@ -642,6 +647,7 @@ bool SpellingHighlighter::enabled() {
 void SpellingHighlighter::setEnabled(bool enabled) {
 	_enabled = enabled;
 	if (_enabled) {
+		updateDocumentText();
 		checkCurrentText();
 	} else {
 		_cachedRanges.clear();
