@@ -18,7 +18,6 @@ namespace {
 
 class EnchantSpellChecker {
 public:
-	bool isAvailable();
 	auto knownLanguages();
 	bool checkSpelling(const QString &word);
 	auto findSuggestions(const QString &word);
@@ -33,16 +32,15 @@ private:
 	EnchantSpellChecker(const EnchantSpellChecker&) = delete;
 	EnchantSpellChecker& operator =(const EnchantSpellChecker&) = delete;
 
-	std::unique_ptr<enchant::Broker> _brokerHandle;
-	std::vector<std::unique_ptr<enchant::Dict>> _validators;
+	using DictPtr = std::unique_ptr<enchant::Dict>;
+
+	enchant::Broker _brokerHandle;
+	std::vector<DictPtr> _validators;
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
-	if (!enchant::loader::do_explicit_linking()) return;
-
 	std::set<std::string> langs;
-	_brokerHandle = std::make_unique<enchant::Broker>();
-	_brokerHandle->list_dicts([](
+	_brokerHandle.list_dicts([](
 			const char *language,
 			const char *provider,
 			const char *description,
@@ -50,18 +48,17 @@ EnchantSpellChecker::EnchantSpellChecker() {
 			void *our_payload) {
 		static_cast<decltype(langs)*>(our_payload)->insert(language);
 	}, &langs);
-	using DictPtr = std::unique_ptr<enchant::Dict>;
 	_validators.reserve(langs.size());
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
-		_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
+		_validators.push_back(DictPtr(_brokerHandle.request_dict(langTag)));
 		langs.erase(langTag);
 	} catch (const enchant::Exception &e) {
 		// no first dictionary found
 	}
 	for (const std::string &language : langs) {
 		try {
-			_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
+			_validators.push_back(DictPtr(_brokerHandle.request_dict(language)));
 		} catch (const enchant::Exception &e) {
 			base::Integration::Instance().logMessage(QString("Catch after request_dict: ") + e.what());
 		}
@@ -71,10 +68,6 @@ EnchantSpellChecker::EnchantSpellChecker() {
 EnchantSpellChecker *EnchantSpellChecker::instance() {
 	static EnchantSpellChecker capsule;
 	return &capsule;
-}
-
-bool EnchantSpellChecker::isAvailable() {
-	return !_validators.empty();
 }
 
 auto EnchantSpellChecker::knownLanguages() {
@@ -146,7 +139,8 @@ void Init() {
 }
 
 bool IsAvailable() {
-	return EnchantSpellChecker::instance()->isAvailable();
+	static auto Available = enchant::loader::do_explicit_linking();
+	return Available;
 }
 
 void KnownLanguages(std::vector<QString> *langCodes) {
