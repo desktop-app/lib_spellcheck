@@ -21,6 +21,11 @@ namespace Platform::Spellchecker {
 
 namespace {
 
+// Seems like ISpellChecker API has bugs for Persian language (aka Farsi).
+inline bool IsPersianLanguage(const QString &langTag) {
+	return langTag.startsWith(QStringLiteral("fa"));
+}
+
 inline LPCWSTR Q2WString(QStringView string) {
 	return (LPCWSTR)string.utf16();
 }
@@ -114,7 +119,10 @@ void WindowsSpellChecker::fillSuggestionList(
 	LPCWSTR wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 	auto i = 0;
-	for (const auto &[_, spellchecker] : _spellcheckerMap) {
+	for (const auto &[langTag, spellchecker] : _spellcheckerMap) {
+		if (IsPersianLanguage(langTag)) {
+			continue;
+		}
 		ComPtr<IEnumString> suggestions;
 		HRESULT hr = spellchecker->Suggest(wrongWord, &suggestions);
 		if (hr != S_OK) {
@@ -179,12 +187,12 @@ void WindowsSpellChecker::checkSpellingText(
 			|| action == CORRECTIVE_ACTION_REPLACE;
 	};
 
-	for (const auto &[_, spellchecker] : _spellcheckerMap) {
+	for (const auto &[langTag, spellchecker] : _spellcheckerMap) {
 		ComPtr<IEnumSpellingError> spellingErrors;
 
-		HRESULT hr = spellchecker->ComprehensiveCheck(
-			text,
-			&spellingErrors);
+		HRESULT hr = IsPersianLanguage(langTag)
+			? spellchecker->Check(text, &spellingErrors)
+			: spellchecker->ComprehensiveCheck(text, &spellingErrors);
 		if (!(SUCCEEDED(hr) && spellingErrors)) {
 			continue;
 		}
