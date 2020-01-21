@@ -63,14 +63,12 @@ private:
 	bool isLanguageSupported(const LPCWSTR& lang);
 	void createSpellCheckers();
 
-	std::vector<QString> _systemLanguages;
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
 	std::map<QString, ComPtr<ISpellChecker>> _spellcheckerMap;
 
 };
 
 WindowsSpellChecker::WindowsSpellChecker() {
-	_systemLanguages = SystemLanguages();
 	createFactory();
 	createSpellCheckers();
 }
@@ -87,7 +85,7 @@ void WindowsSpellChecker::createSpellCheckers() {
 	if (!_spellcheckerFactory) {
 		return;
 	}
-	for (const auto &lang : _systemLanguages) {
+	for (const auto &lang : SystemLanguages()) {
 		const auto wlang = Q2WString(lang);
 		if (!isLanguageSupported(wlang)) {
 			continue;
@@ -253,7 +251,12 @@ void WindowsSpellChecker::ignoreWord(LPCWSTR word) {
 }
 
 std::vector<QString> WindowsSpellChecker::systemLanguages() {
-	return _systemLanguages;
+	std::vector<QString> langs;
+	ranges::transform(
+		_spellcheckerMap,
+		ranges::back_inserter(langs),
+		[](const auto &pair) { return pair.first; });
+	return langs;
 }
 
 ////// End of WindowsSpellChecker class.
