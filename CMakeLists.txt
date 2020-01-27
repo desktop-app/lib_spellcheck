@@ -37,6 +37,7 @@ PUBLIC
 target_link_libraries(lib_spellcheck
 PUBLIC
     desktop-app::lib_ui
+    desktop-app::external_hunspell
 )
 
 if (LINUX)
