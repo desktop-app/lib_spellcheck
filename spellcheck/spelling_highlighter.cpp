@@ -7,19 +7,12 @@
 
 #include "spellcheck/spelling_highlighter.h"
 
+#include "spellcheck/spellcheck_value.h"
 #include "spellcheck/spellcheck_utils.h"
 #include "styles/palette.h"
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
 #include "ui/ui_utility.h"
-
-namespace ph {
-
-phrase lng_spellchecker_add = "Add to Dictionary";
-phrase lng_spellchecker_remove = "Remove from Dictionary";
-phrase lng_spellchecker_ignore = "Ignore word";
-
-} // namespace ph
 
 namespace Spellchecker {
 

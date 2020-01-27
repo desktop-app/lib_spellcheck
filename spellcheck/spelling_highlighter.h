@@ -10,7 +10,6 @@
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
 #include "spellcheck/spellcheck_types.h"
-#include "ui/ph.h"
 #include "ui/widgets/input_fields.h"
 
 #include <QtGui/QSyntaxHighlighter>
@@ -24,25 +23,7 @@ namespace Ui {
 struct ExtendedContextMenu;
 } // namespace Ui
 
-namespace ph {
-
-extern phrase lng_spellchecker_add;
-extern phrase lng_spellchecker_remove;
-extern phrase lng_spellchecker_ignore;
-
-} // namespace ph
-
 namespace Spellchecker {
-
-////// Phrases.
-
-inline constexpr auto kPhrasesCount = 3;
-
-inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
-	ph::details::set_values(std::move(data));
-}
-
-//////
 
 class SpellingHighlighter final : public QSyntaxHighlighter {
 
