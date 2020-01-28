@@ -104,7 +104,8 @@ EnchantSpellChecker::EnchantSpellChecker() {
 				break;
 			}
 		} catch (const enchant::Exception &e) {
-			base::Integration::Instance().logMessage(QString("Catch after request_dict: ") + e.what());
+			base::Integration::Instance().logMessage(
+				QString("Catch after request_dict: ") + e.what());
 		}
 	}
 }
@@ -123,9 +124,19 @@ auto EnchantSpellChecker::knownLanguages() {
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
 	auto w = word.toStdString();
 
+	const auto checkWord = [&](const auto &validator, auto w) {
+		try {
+			return validator->check(w);
+		} catch (const enchant::Exception &e) {
+			base::Integration::Instance().logMessage(
+				QString("Catch after check '") + word + "': " + e.what());
+			return true;
+		}
+	};
+
 	if (IsHebrew(word) && _hspells.size()) {
 		return ranges::any_of(_hspells, [&](const auto &validator) {
-			return validator->check(w);
+			return checkWord(validator, w);
 		});
 	}
 	return ranges::any_of(_validators, [&](const auto &validator) {
@@ -140,12 +151,7 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 		if (validator->get_lang().find("uk") == 0) {
 			return false;
 		}
-		try {
-			return validator->check(w);
-		} catch (const enchant::Exception &e) {
-			base::Integration::Instance().logMessage(QString("Catch after check '") + word + "': " + e.what());
-			return true;
-		}
+		return checkWord(validator, w);
 	}) || _validators.empty();
 }
 
