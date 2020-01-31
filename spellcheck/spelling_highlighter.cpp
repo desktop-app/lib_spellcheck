@@ -421,7 +421,8 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 	if (hasUnspellcheckableTag(position, length)) {
 		return true;
 	}
-	const auto ref = documentText().midRef(position, length);
+	const auto text = documentText();
+	const auto ref = text.midRef(position, length);
 	if (ref.isNull()) {
 		return true;
 	}
