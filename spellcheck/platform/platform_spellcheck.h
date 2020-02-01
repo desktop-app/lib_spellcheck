@@ -30,6 +30,8 @@ void CheckSpellingText(
 	const QString &text,
 	MisspelledWords *misspelledWords);
 
+void UpdateLanguages(std::vector<int> languages);
+
 } // namespace Platform::Spellchecker
 
 // Platform dependent implementations.

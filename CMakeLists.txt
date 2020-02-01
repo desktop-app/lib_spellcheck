@@ -27,6 +27,8 @@ PRIVATE
     spellcheck/spellcheck_types.h
     spellcheck/spelling_highlighter.cpp
     spellcheck/spelling_highlighter.h
+    spellcheck/spellcheck_hunspell.cpp
+    spellcheck/spellcheck_hunspell.h
     spellcheck/spellcheck_value.cpp
     spellcheck/spellcheck_value.h
 )

@@ -22,6 +22,10 @@ struct SubtagScript {
 
 std::vector<QChar::Script> SupportedScripts;
 
+constexpr auto kFactor = 1000;
+
+constexpr auto kMaxWordSize = 99;
+
 constexpr auto kAcuteAccentChars = {
 	QChar(769),	QChar(833),	// QChar(180),
 	QChar(714),	QChar(779),	QChar(733),
@@ -223,9 +227,13 @@ QChar::Script WordScript(const QStringRef &word) {
 		: firstLetter->script();
 }
 
-bool IsWordSkippable(const QStringRef &word) {
+bool IsWordSkippable(const QStringRef &word, bool checkSupportedScripts) {
+	if (word.size() > kMaxWordSize) {
+		return true;
+	}
 	const auto wordScript = WordScript(word);
-	if (!ranges::contains(SupportedScripts, wordScript)) {
+	if (checkSupportedScripts
+		&& !ranges::contains(SupportedScripts, wordScript)) {
 		return true;
 	}
 	return ranges::find_if(word, [&](QChar c) {
@@ -294,6 +302,16 @@ MisspelledWords RangesFromText(
 bool CheckSkipAndSpell(const QString &word) {
 	return !IsWordSkippable(&word)
 		&& Platform::Spellchecker::CheckSpelling(word);
+}
+
+QLocale LocaleFromLangId(int langId) {
+	if (langId < kFactor) {
+		return QLocale(static_cast<QLocale::Language>(langId));
+	}
+	const auto l = langId / kFactor;
+	const auto lang = static_cast<QLocale::Language>(l);
+	const auto country = static_cast<QLocale::Country>(langId - l * kFactor);
+	return QLocale(lang, country);
 }
 
 } // namespace Spellchecker

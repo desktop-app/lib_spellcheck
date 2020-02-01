@@ -245,6 +245,9 @@ void KnownLanguages(std::vector<QString> *langCodes) {
 	*langCodes = EnchantSpellChecker::instance()->knownLanguages();
 }
 
+void UpdateLanguages(std::vector<int> languages) {
+}
+
 bool CheckSpelling(const QString &wordToCheck) {
 	return EnchantSpellChecker::instance()->checkSpelling(wordToCheck);
 }

@@ -8,11 +8,15 @@
 
 #include "spellcheck/spellcheck_types.h"
 
+#include <QLocale>
+
 namespace Spellchecker {
 
 QChar::Script LocaleToScriptCode(const QString &locale);
 QChar::Script WordScript(const QStringRef &word);
-bool IsWordSkippable(const QStringRef &word);
+bool IsWordSkippable(
+	const QStringRef &word,
+	bool checkSupportedScripts = true);
 
 MisspelledWords RangesFromText(
 	const QString &text,
@@ -20,6 +24,8 @@ MisspelledWords RangesFromText(
 
 // For Linux and macOS, which use RangesFromText.
 bool CheckSkipAndSpell(const QString &word);
+
+QLocale LocaleFromLangId(int langId);
 
 void UpdateSupportedScripts(std::vector<QString> languages);
 
