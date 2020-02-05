@@ -56,8 +56,8 @@ bool IsAvailable() {
 	return true;
 }
 
-void KnownLanguages(std::vector<QString> *langCodes) {
-	*langCodes = SystemLanguages();
+std::vector<QString> ActiveLanguages() {
+	return SystemLanguages();
 }
 
 bool CheckSpelling(const QString &wordToCheck) {

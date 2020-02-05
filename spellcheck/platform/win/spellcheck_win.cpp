@@ -280,8 +280,8 @@ bool IsAvailable() {
 	return IsWindows8OrGreater();
 }
 
-void KnownLanguages(std::vector<QString> *langCodes) {
-	*langCodes = SharedSpellChecker()->systemLanguages();
+std::vector<QString> ActiveLanguages() {
+	return SharedSpellChecker()->systemLanguages();
 }
 
 bool CheckSpelling(const QString &wordToCheck) {

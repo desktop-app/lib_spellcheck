@@ -71,7 +71,7 @@ public:
 	~HunspellService() = default;
 
 	void updateLanguages(std::vector<QString> langs);
-	std::vector<QString> availableLanguages();
+	std::vector<QString> activeLanguages();
 	[[nodiscard]] bool checkSpelling(const QString &wordToCheck);
 
 	void fillSuggestionList(
@@ -154,10 +154,14 @@ QChar::Script HunspellEngine::script() {
 	return _script;
 }
 
-std::vector<QString> HunspellService::availableLanguages() {
+std::vector<QString> HunspellService::activeLanguages() {
 	return ranges::view::all(
 		_engines
-	) | ranges::views::transform(&HunspellEngine::lang)
+	) | ranges::views::filter([](auto &engine) {
+		// Sometimes dictionaries may haven't enough time
+		// to unload from memory.
+		return engine != nullptr;
+	}) | ranges::views::transform(&HunspellEngine::lang)
 	| ranges::to_vector;
 }
 
@@ -378,15 +382,14 @@ void UpdateLanguages(std::vector<int> languages) {
 	) | ranges::to_vector;
 
 	SharedSpellChecker()->updateLanguages(languageCodes);
-	::Spellchecker::UpdateSupportedScripts(
-		SharedSpellChecker()->availableLanguages());
 }
 
 void Init() {
 	crl::async(SharedSpellChecker);
 }
 
-void KnownLanguages(std::vector<QString> *langCodes) {
+std::vector<QString> ActiveLanguages() {
+	return SharedSpellChecker()->activeLanguages();
 }
 
 void CheckSpellingText(

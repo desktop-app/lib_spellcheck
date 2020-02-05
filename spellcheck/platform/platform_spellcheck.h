@@ -17,7 +17,7 @@ constexpr auto kMaxSuggestions = 5;
 [[nodiscard]] bool IsWordInDictionary(const QString &wordToCheck);
 
 void Init();
-void KnownLanguages(std::vector<QString> *langCodes);
+std::vector<QString> ActiveLanguages();
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions);

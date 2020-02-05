@@ -241,11 +241,18 @@ bool IsAvailable() {
 	return Available;
 }
 
-void KnownLanguages(std::vector<QString> *langCodes) {
-	*langCodes = EnchantSpellChecker::instance()->knownLanguages();
+std::vector<QString> ActiveLanguages() {
+	return EnchantSpellChecker::instance()->knownLanguages();
 }
 
 void UpdateLanguages(std::vector<int> languages) {
+	::Spellchecker::UpdateSupportedScripts(ActiveLanguages());
+	crl::async([=] {
+		const auto result = ActiveLanguages();
+		crl::on_main([=] {
+			::Spellchecker::UpdateSupportedScripts(result);
+		});
+	});
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
