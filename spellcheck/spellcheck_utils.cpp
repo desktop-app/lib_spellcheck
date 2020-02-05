@@ -222,9 +222,11 @@ QChar::Script WordScript(const QStringRef &word) {
 		: firstLetter->script();
 }
 
-bool IsWordSkippable(const QStringRef &word) {
-	static auto systemScripts = std::vector<QChar::Script>();
-	if (!systemScripts.size()) {
+class SystemScripts {
+	std::vector<QChar::Script> systemScripts;
+public:
+
+	SystemScripts() {
 		std::vector<QString> languages;
 		Platform::Spellchecker::KnownLanguages(&languages);
 		systemScripts = (
@@ -238,16 +240,24 @@ bool IsWordSkippable(const QStringRef &word) {
 			systemScripts = { QChar::Script_Common };
 		}
 	}
-	const auto wordScript = WordScript(word);
-	if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
-		return true;
+
+	bool IsWordSkippable(const QStringRef &word) const {
+		const auto wordScript = WordScript(word);
+		if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
+			return true;
+		}
+		return ranges::find_if(word, [&](QChar c) {
+			return (c.script() != wordScript)
+				&& !IsAcuteAccentChar(c)
+				&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
+				&& (c.unicode() != '_'); // This is not a word separator.
+		}) != word.end();
 	}
-	return ranges::find_if(word, [&](QChar c) {
-		return (c.script() != wordScript)
-			&& !IsAcuteAccentChar(c)
-			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
-			&& (c.unicode() != '_'); // This is not a word separator.
-	}) != word.end();
+};
+
+bool IsWordSkippable(const QStringRef &word) {
+	static SystemScripts systemScripts;
+	return systemScripts.IsWordSkippable(word);
 }
 
 MisspelledWords RangesFromText(
