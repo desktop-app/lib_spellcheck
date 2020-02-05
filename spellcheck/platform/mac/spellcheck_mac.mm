@@ -166,6 +166,10 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 	return [SharedSpellChecker() hasLearnedWord:Q2NSString(wordToCheck)];
 }
 
+bool IsSystemSpellchecker() {
+	return true;
+}
+
 void UpdateLanguages(std::vector<int> languages) {
 	::Spellchecker::UpdateSupportedScripts(SystemLanguages());
 }

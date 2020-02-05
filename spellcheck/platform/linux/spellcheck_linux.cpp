@@ -289,4 +289,8 @@ void CheckSpellingText(
 		::Spellchecker::CheckSkipAndSpell);
 }
 
+bool IsSystemSpellchecker() {
+	return true;
+}
+
 } // namespace Platform::Spellchecker

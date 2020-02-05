@@ -12,6 +12,7 @@ namespace Platform::Spellchecker {
 
 constexpr auto kMaxSuggestions = 5;
 
+[[nodiscard]] bool IsSystemSpellchecker();
 [[nodiscard]] bool IsAvailable();
 [[nodiscard]] bool CheckSpelling(const QString &wordToCheck);
 [[nodiscard]] bool IsWordInDictionary(const QString &wordToCheck);

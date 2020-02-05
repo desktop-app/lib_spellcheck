@@ -280,6 +280,12 @@ bool IsAvailable() {
 	return IsWindows8OrGreater();
 }
 
+bool IsSystemSpellchecker() {
+	// Windows 7 does not support spellchecking.
+	// https://docs.microsoft.com/en-us/windows/win32/api/spellcheck/nn-spellcheck-ispellchecker
+	return IsWindows8OrGreater();
+}
+
 std::vector<QString> ActiveLanguages() {
 	return SharedSpellChecker()->systemLanguages();
 }
