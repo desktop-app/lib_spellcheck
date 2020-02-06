@@ -250,12 +250,7 @@ void WindowsSpellChecker::ignoreWord(LPCWSTR word) {
 }
 
 std::vector<QString> WindowsSpellChecker::systemLanguages() {
-	std::vector<QString> langs;
-	ranges::transform(
-		_spellcheckerMap,
-		ranges::back_inserter(langs),
-		[](const auto &pair) { return pair.first; });
-	return langs;
+	return ranges::views::keys(_spellcheckerMap) | ranges::to_vector;
 }
 
 ////// End of WindowsSpellChecker class.
