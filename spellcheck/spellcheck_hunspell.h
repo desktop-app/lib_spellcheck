@@ -8,6 +8,6 @@
 
 #include "spellcheck/platform/platform_spellcheck.h"
 
-namespace Platform::Spellchecker {
+namespace Platform::Spellchecker::ThirdParty {
 
-} // namespace Platform::Spellchecker
+} // namespace Platform::Spellchecker::ThirdParty

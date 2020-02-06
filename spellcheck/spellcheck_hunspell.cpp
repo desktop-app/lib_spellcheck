@@ -13,7 +13,7 @@
 #include <QFileInfo>
 #include <QTextCodec>
 
-namespace Platform::Spellchecker {
+namespace Platform::Spellchecker::ThirdParty {
 namespace {
 
 using WordsMap = std::map<QChar::Script, std::vector<QString>>;
@@ -408,4 +408,4 @@ void CheckSpellingText(
 		::Spellchecker::CheckSkipAndSpell);
 }
 
-} // namespace Platform::Spellchecker
+} // namespace Platform::Spellchecker::ThirdParty
