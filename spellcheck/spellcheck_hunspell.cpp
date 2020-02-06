@@ -359,15 +359,11 @@ void FillSuggestionList(
 }
 
 void AddWord(const QString &word) {
-	crl::async([=] {
-		SharedSpellChecker()->addWord(word);
-	});
+	SharedSpellChecker()->addWord(word);
 }
 
 void RemoveWord(const QString &word) {
-	crl::async([=] {
-		SharedSpellChecker()->removeWord(word);
-	});
+	SharedSpellChecker()->removeWord(word);
 }
 
 void IgnoreWord(const QString &word) {
@@ -376,10 +372,6 @@ void IgnoreWord(const QString &word) {
 
 bool IsWordInDictionary(const QString &wordToCheck) {
 	return SharedSpellChecker()->isWordInDictionary(wordToCheck);
-}
-
-bool IsAvailable() {
-	return true;
 }
 
 void UpdateLanguages(std::vector<int> languages) {
@@ -392,10 +384,6 @@ void UpdateLanguages(std::vector<int> languages) {
 	SharedSpellChecker()->updateLanguages(languageCodes);
 }
 
-void Init() {
-	crl::async(SharedSpellChecker);
-}
-
 std::vector<QString> ActiveLanguages() {
 	return SharedSpellChecker()->activeLanguages();
 }
@@ -405,7 +393,10 @@ void CheckSpellingText(
 	MisspelledWords *misspelledWords) {
 	*misspelledWords = ::Spellchecker::RangesFromText(
 		text,
-		::Spellchecker::CheckSkipAndSpell);
+		[](const QString &word) {
+			return !::Spellchecker::IsWordSkippable(&word)
+				&& CheckSpelling(word);
+		});
 }
 
 } // namespace Platform::Spellchecker::ThirdParty
