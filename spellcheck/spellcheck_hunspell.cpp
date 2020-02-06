@@ -322,10 +322,18 @@ void HunspellService::readFile() {
 	});
 
 	// {QChar::Script_Latin : {"a"}, QChar::Script_Greek : {"β"}};
-	_addedWords = ranges::view::zip(
+	auto &&zip = ranges::view::zip(
 		scripts, groupedWords
-	) | ranges::to<WordsMap>;
-
+	);
+#ifndef Q_OS_WIN
+	_addedWords = zip | ranges::to<WordsMap>;
+#else
+	// This is a workaround for the MSVC compiler.
+	// Something is wrong with the group_by method or with me. =(
+	for (auto &&[script, words] : zip) {
+		_addedWords[script] = std::move(words);
+	}
+#endif
 	writeToFile();
 }
 
