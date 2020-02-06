@@ -5,6 +5,7 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 #include "spellcheck/platform/win/spellcheck_win.h"
+#include "spellcheck/spellcheck_hunspell.h"
 
 #include <wrl/client.h>
 #include <spellcheck.h>
@@ -282,14 +283,15 @@ bool IsSystemSpellchecker() {
 }
 
 std::vector<QString> ActiveLanguages() {
-	return SharedSpellChecker()->systemLanguages();
+	if (IsSystemSpellchecker()) {
+		return SharedSpellChecker()->systemLanguages();
+	}
+	return ThirdParty::ActiveLanguages();
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
-	// Windows 7 does not support spellchecking.
-	// https://docs.microsoft.com/en-us/windows/win32/api/spellcheck/nn-spellcheck-ispellchecker
-	if (!IsWindows8OrGreater()) {
-		return true;
+	if (!IsSystemSpellchecker()) {
+		return ThirdParty::CheckSpelling(wordToCheck);
 	}
 	return SharedSpellChecker()->checkSpelling(Q2WString(wordToCheck));
 }
@@ -297,34 +299,66 @@ bool CheckSpelling(const QString &wordToCheck) {
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	SharedSpellChecker()->fillSuggestionList(
-		Q2WString(wrongWord),
+	if (IsSystemSpellchecker()) {
+		SharedSpellChecker()->fillSuggestionList(
+			Q2WString(wrongWord),
+			optionalSuggestions);
+		return;
+	}
+	ThirdParty::FillSuggestionList(
+		wrongWord,
 		optionalSuggestions);
 }
 
 void AddWord(const QString &word) {
-	SharedSpellChecker()->addWord(Q2WString(word));
+	if (IsSystemSpellchecker()) {
+		SharedSpellChecker()->addWord(Q2WString(word));
+	} else {
+		ThirdParty::AddWord(word);
+	}
 }
 
 void RemoveWord(const QString &word) {
-	SharedSpellChecker()->removeWord(Q2WString(word));
+	if (IsSystemSpellchecker()) {
+		SharedSpellChecker()->removeWord(Q2WString(word));
+	} else {
+		ThirdParty::RemoveWord(word);
+	}
 }
 
 void IgnoreWord(const QString &word) {
-	SharedSpellChecker()->ignoreWord(Q2WString(word));
+	if (IsSystemSpellchecker()) {
+		SharedSpellChecker()->ignoreWord(Q2WString(word));
+	} else {
+		ThirdParty::IgnoreWord(word);
+	}
 }
 
 bool IsWordInDictionary(const QString &wordToCheck) {
-	// ISpellChecker can't check if a word is in the dictionary.
-	return false;
+	if (IsSystemSpellchecker()) {
+		// ISpellChecker can't check if a word is in the dictionary.
+		return false;
+	}
+	return ThirdParty::IsWordInDictionary(wordToCheck);
+}
+
+void UpdateLanguages(std::vector<int> languages) {
+	if (IsSystemSpellchecker()) {
+		return;
+	}
+	ThirdParty::UpdateLanguages(languages);
 }
 
 void CheckSpellingText(
 	const QString &text,
 	MisspelledWords *misspelledWords) {
-	SharedSpellChecker()->checkSpellingText(
-		Q2WString(text),
-		misspelledWords);
+	if (IsSystemSpellchecker()) {
+		SharedSpellChecker()->checkSpellingText(
+			Q2WString(text),
+			misspelledWords);
+		return;
+	}
+	ThirdParty::CheckSpellingText(text, misspelledWords);
 }
 
 
