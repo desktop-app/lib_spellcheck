@@ -61,6 +61,7 @@ private:
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
+	if (!enchant::loader::do_explicit_linking()) return;
 	std::set<std::string> langs;
 	_brokerHandle = std::make_unique<enchant::Broker>();
 	_brokerHandle->list_dicts([](
@@ -234,11 +235,6 @@ bool EnchantSpellChecker::isWordInDictionary(const QString &word) {
 } // namespace
 
 void Init() {
-}
-
-bool IsAvailable() {
-	static auto Available = enchant::loader::do_explicit_linking();
-	return Available;
 }
 
 std::vector<QString> ActiveLanguages() {

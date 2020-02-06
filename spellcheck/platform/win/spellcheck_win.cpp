@@ -272,10 +272,6 @@ void Init() {
 	crl::async(SharedSpellChecker);
 }
 
-bool IsAvailable() {
-	return IsWindows8OrGreater();
-}
-
 bool IsSystemSpellchecker() {
 	// Windows 7 does not support spellchecking.
 	// https://docs.microsoft.com/en-us/windows/win32/api/spellcheck/nn-spellcheck-ispellchecker

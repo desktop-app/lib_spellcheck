@@ -52,10 +52,6 @@ namespace Platform::Spellchecker {
 void Init() {
 }
 
-bool IsAvailable() {
-	return true;
-}
-
 std::vector<QString> ActiveLanguages() {
 	return SystemLanguages();
 }
