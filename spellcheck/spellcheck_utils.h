@@ -21,4 +21,6 @@ MisspelledWords RangesFromText(
 // For Linux and macOS, which use RangesFromText.
 bool CheckSkipAndSpell(const QString &word);
 
+void UpdateSupportedScripts(std::vector<QString> languages);
+
 } // namespace Spellchecker

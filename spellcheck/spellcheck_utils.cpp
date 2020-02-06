@@ -20,6 +20,8 @@ struct SubtagScript {
 
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
+std::vector<QChar::Script> SupportedScripts;
+
 constexpr auto kAcuteAccentChars = {
 	QChar(769),	QChar(833),	// QChar(180),
 	QChar(714),	QChar(779),	QChar(733),
@@ -222,42 +224,28 @@ QChar::Script WordScript(const QStringRef &word) {
 		: firstLetter->script();
 }
 
-class SystemScripts {
-	std::vector<QChar::Script> systemScripts;
-public:
-
-	SystemScripts() {
-		std::vector<QString> languages;
-		Platform::Spellchecker::KnownLanguages(&languages);
-		systemScripts = (
-			languages
-		) | ranges::views::transform(
-			LocaleToScriptCode
-		) | ranges::views::unique | ranges::views::filter(
-			IsSpellcheckableScripts
-		) | ranges::to_vector;
-		if (systemScripts.empty()) {
-			systemScripts = { QChar::Script_Common };
-		}
-	}
-
-	bool IsWordSkippable(const QStringRef &word) const {
-		const auto wordScript = WordScript(word);
-		if (ranges::find(systemScripts, wordScript) == end(systemScripts)) {
-			return true;
-		}
-		return ranges::find_if(word, [&](QChar c) {
-			return (c.script() != wordScript)
-				&& !IsAcuteAccentChar(c)
-				&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
-				&& (c.unicode() != '_'); // This is not a word separator.
-		}) != word.end();
-	}
-};
-
 bool IsWordSkippable(const QStringRef &word) {
-	static SystemScripts systemScripts;
-	return systemScripts.IsWordSkippable(word);
+	const auto wordScript = WordScript(word);
+	if (!ranges::contains(SupportedScripts, wordScript)) {
+		return true;
+	}
+	return ranges::find_if(word, [&](QChar c) {
+		return (c.script() != wordScript)
+			&& !IsAcuteAccentChar(c)
+			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
+			&& (c.unicode() != '_'); // This is not a word separator.
+	}) != word.end();
+}
+
+void UpdateSupportedScripts(std::vector<QString> languages) {
+	// It should be called at least once from Platform::Spellchecker::Init().
+	SupportedScripts = ranges::view::all(
+		languages
+	) | ranges::views::transform(
+		LocaleToScriptCode
+	) | ranges::views::unique | ranges::views::filter(
+		IsSpellcheckableScripts
+	) | ranges::to_vector;
 }
 
 MisspelledWords RangesFromText(
