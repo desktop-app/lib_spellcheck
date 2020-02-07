@@ -21,6 +21,7 @@ struct SubtagScript {
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
 std::vector<QChar::Script> SupportedScripts;
+rpl::event_stream<> SupportedScriptsEventStream;
 
 constexpr auto kFactor = 1000;
 
@@ -253,6 +254,11 @@ void UpdateSupportedScripts(std::vector<QString> languages) {
 	) | ranges::views::unique | ranges::views::filter(
 		IsSpellcheckableScripts
 	) | ranges::to_vector;
+	SupportedScriptsEventStream.fire({});
+}
+
+rpl::producer<> SupportedScriptsChanged() {
+	return SupportedScriptsEventStream.events();
 }
 
 MisspelledWords RangesFromText(

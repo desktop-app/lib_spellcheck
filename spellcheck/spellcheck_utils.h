@@ -28,5 +28,6 @@ bool CheckSkipAndSpell(const QString &word);
 QLocale LocaleFromLangId(int langId);
 
 void UpdateSupportedScripts(std::vector<QString> languages);
+rpl::producer<> SupportedScriptsChanged();
 
 } // namespace Spellchecker

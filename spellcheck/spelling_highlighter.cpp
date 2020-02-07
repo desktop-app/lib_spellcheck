@@ -202,6 +202,11 @@ SpellingHighlighter::SpellingHighlighter(
 	) | rpl::start_with_next([=](bool value) {
 		setEnabled(value);
 	}, _lifetime);
+
+	Spellchecker::SupportedScriptsChanged(
+	) | rpl::start_with_next([=] {
+		checkCurrentText();
+	}, _lifetime);
 }
 
 void SpellingHighlighter::updatePalette() {
