@@ -379,13 +379,19 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 }
 
 void UpdateLanguages(std::vector<int> languages) {
-	const auto languageCodes = ranges::view::all(
-		languages
-	) | ranges::views::transform(
-		LocaleNameFromLangId
-	) | ranges::to_vector;
+	crl::async([=] {
+		const auto languageCodes = ranges::view::all(
+			languages
+		) | ranges::views::transform(
+			LocaleNameFromLangId
+		) | ranges::to_vector;
 
-	SharedSpellChecker()->updateLanguages(languageCodes);
+		SharedSpellChecker()->updateLanguages(languageCodes);
+		const auto result = ActiveLanguages();
+		crl::on_main([=] {
+			::Spellchecker::UpdateSupportedScripts(result);
+		});
+	});
 }
 
 std::vector<QString> ActiveLanguages() {

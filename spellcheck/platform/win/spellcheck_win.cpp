@@ -339,10 +339,16 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 }
 
 void UpdateLanguages(std::vector<int> languages) {
-	if (IsSystemSpellchecker()) {
+	if (!IsSystemSpellchecker()) {
+		ThirdParty::UpdateLanguages(languages);
 		return;
 	}
-	ThirdParty::UpdateLanguages(languages);
+	crl::async([=] {
+		const auto result = ActiveLanguages();
+		crl::on_main([=] {
+			::Spellchecker::UpdateSupportedScripts(result);
+		});
+	});
 }
 
 void CheckSpellingText(
