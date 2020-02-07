@@ -140,9 +140,13 @@ void HunspellEngine::suggest(
 		if (optionalSuggestions->size()	== kMaxSuggestions) {
 			return;
 		}
-		optionalSuggestions->push_back(_codec->toUnicode(
+		const auto qguess = _codec->toUnicode(
 			guess.data(),
-			guess.length()));
+			guess.length());
+		if (ranges::contains(*optionalSuggestions, qguess)) {
+			continue;
+		}
+		optionalSuggestions->push_back(qguess);
 	}
 }
 
