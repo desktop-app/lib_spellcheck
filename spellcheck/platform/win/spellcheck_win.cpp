@@ -5,7 +5,7 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 #include "spellcheck/platform/win/spellcheck_win.h"
-#include "spellcheck/spellcheck_hunspell.h"
+#include "spellcheck/third_party/hunspell_controller.h"
 
 #include <wrl/client.h>
 #include <spellcheck.h>
