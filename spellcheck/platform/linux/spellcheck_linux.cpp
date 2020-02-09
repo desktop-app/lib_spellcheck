@@ -7,7 +7,6 @@
 #include <set>
 #include <QLocale>
 
-#include "spellcheck/spellcheck_utils.h"
 #include "spellcheck/platform/linux/linux_enchant.h"
 
 #include "spellcheck/platform/linux/spellcheck_linux.h"

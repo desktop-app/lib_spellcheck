@@ -7,6 +7,7 @@
 #pragma once
 
 #include "spellcheck/spellcheck_types.h"
+#include "spellcheck/spellcheck_utils.h"
 
 namespace Platform::Spellchecker {
 

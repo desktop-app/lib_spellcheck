@@ -7,7 +7,6 @@
 #include "spellcheck/platform/mac/spellcheck_mac.h"
 
 #include "base/platform/mac/base_utilities_mac.h"
-#include "spellcheck/spellcheck_utils.h"
 
 #import <QuartzCore/QuartzCore.h>
 
