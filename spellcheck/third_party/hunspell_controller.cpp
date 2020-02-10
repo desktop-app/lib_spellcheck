@@ -10,6 +10,9 @@
 #include "hunspell/hunspell.hxx"
 #include "spellcheck/spellcheck_value.h"
 
+#include <mutex>
+#include <shared_mutex>
+
 #include <QFileInfo>
 #include <QTextCodec>
 
@@ -90,8 +93,13 @@ private:
 	std::vector<QString> &addedWords(const QString &word);
 
 	std::vector<std::unique_ptr<HunspellEngine>> _engines;
+	std::vector<QString> _activeLanguages;
 	WordsMap _ignoredWords;
 	WordsMap _addedWords;
+
+	std::atomic<int> _epoch = 0;
+
+	std::shared_mutex _engineMutex;
 
 };
 
@@ -159,14 +167,7 @@ QChar::Script HunspellEngine::script() {
 }
 
 std::vector<QString> HunspellService::activeLanguages() {
-	return ranges::view::all(
-		_engines
-	) | ranges::views::filter([](auto &engine) {
-		// Sometimes dictionaries may haven't enough time
-		// to unload from memory.
-		return engine != nullptr;
-	}) | ranges::views::transform(&HunspellEngine::lang)
-	| ranges::to_vector;
+	return _activeLanguages;
 }
 
 HunspellService::HunspellService() {
@@ -178,34 +179,79 @@ std::vector<QString> &HunspellService::addedWords(const QString &word) {
 }
 
 void HunspellService::updateLanguages(std::vector<QString> langs) {
-	// Removed disabled engines.
-	_engines = ranges::view::all(
-		_engines
-	) | ranges::views::filter([&](auto &engine) {
-		// All filtered objects will be automatically deleted.
-		return ranges::contains(langs, engine->lang());
-	}) | ranges::views::transform([](auto &engine) {
-		return std::move(engine);
-	}) | ranges::to_vector;
+	_epoch += 1;
 
-	// Added new enabled engines.
-	const auto &&stringLanguages = ranges::view::all(
-		_engines
-	) | ranges::views::transform(&HunspellEngine::lang);
+	_activeLanguages.clear();
 
-	const auto missingLanguages = ranges::view::all(
-		langs
-	) | ranges::views::filter([&](auto &lang) {
-		return !ranges::contains(stringLanguages, lang);
-	}) | ranges::to_vector;
+	const auto savedEpoch = _epoch.load();
+	crl::async([=] {
+		using UniqueEngine = std::unique_ptr<HunspellEngine>;
 
-	_engines.reserve(_engines.size() + missingLanguages.size());
+		const auto engineLangFilter = [&](const UniqueEngine &engine) {
+			return engine ? ranges::contains(langs, engine->lang()) : false;
+		};
 
-	ranges::for_each(missingLanguages, [&](auto &lang) {
-		auto engine = std::make_unique<HunspellEngine>(lang);
-		if (engine->isValid()) {
-			_engines.push_back(std::move(engine));
+		if (savedEpoch != _epoch.load()) {
+			return;
 		}
+
+		const auto engineLang = [](const UniqueEngine &engine) {
+			return engine ? engine->lang() : QString();
+		};
+
+		std::shared_lock sharedLock(_engineMutex);
+
+		auto missedLangs = ranges::view::all(
+			langs
+		) | ranges::views::filter([&](auto &lang) {
+			return !ranges::contains(_engines, lang, engineLang);
+		}) | ranges::to_vector;
+
+		sharedLock.unlock();
+
+		// Added new enabled engines.
+		auto localEngines = ranges::view::all(
+			missedLangs
+		) | ranges::views::transform([&](auto &lang) -> UniqueEngine {
+			if (savedEpoch != _epoch.load()) {
+				return nullptr;
+			}
+			auto engine = std::make_unique<HunspellEngine>(lang);
+			if (!engine->isValid()) {
+				return nullptr;
+			}
+			return std::move(engine);
+		}) | ranges::to_vector;
+
+		if (savedEpoch != _epoch.load()) {
+			return;
+		}
+
+		std::unique_lock uniqueLock(_engineMutex);
+
+		_engines = ranges::views::concat(
+			_engines, localEngines
+		) | ranges::views::filter(
+			// All filtered objects will be automatically released.
+			engineLangFilter
+		) | ranges::views::transform([](auto &engine) {
+			return std::move(engine);
+		}) | ranges::to_vector;
+
+		uniqueLock.unlock();
+
+		crl::on_main([=] {
+			if (savedEpoch != _epoch.load()) {
+				return;
+			}
+			_epoch = 0;
+			_activeLanguages = ranges::view::all(
+				_engines
+			) | ranges::views::transform(&HunspellEngine::lang)
+			| ranges::to_vector;
+			::Spellchecker::UpdateSupportedScripts(_activeLanguages);
+		});
+
 	});
 }
 
@@ -217,6 +263,7 @@ bool HunspellService::checkSpelling(const QString &wordToCheck) {
 	if (ranges::contains(_addedWords[wordScript], wordToCheck)) {
 		return true;
 	}
+	std::shared_lock lock(_engineMutex);
 	for (const auto &engine : _engines) {
 		if (wordScript != engine->script()) {
 			continue;
@@ -233,6 +280,7 @@ void HunspellService::fillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 	const auto wordScript = ::Spellchecker::WordScript(&wrongWord);
+	std::shared_lock lock(_engineMutex);
 	for (const auto &engine : _engines) {
 		if (wordScript != engine->script()) {
 			continue;
@@ -379,19 +427,15 @@ bool IsWordInDictionary(const QString &wordToCheck) {
 }
 
 void UpdateLanguages(std::vector<int> languages) {
-	crl::async([=] {
-		const auto languageCodes = ranges::view::all(
-			languages
-		) | ranges::views::transform(
-			LocaleNameFromLangId
-		) | ranges::to_vector;
 
-		SharedSpellChecker()->updateLanguages(languageCodes);
-		const auto result = ActiveLanguages();
-		crl::on_main([=] {
-			::Spellchecker::UpdateSupportedScripts(result);
-		});
-	});
+	const auto languageCodes = ranges::view::all(
+		languages
+	) | ranges::views::transform(
+		LocaleNameFromLangId
+	) | ranges::to_vector;
+
+	::Spellchecker::UpdateSupportedScripts(std::vector<QString>());
+	SharedSpellChecker()->updateLanguages(languageCodes);
 }
 
 std::vector<QString> ActiveLanguages() {
