@@ -87,13 +87,16 @@ public:
 	bool isWordInDictionary(const QString &word);
 
 private:
-	void writeToFile();
+	void writeToFile(bool addToCustomDict = false);
 	void readFile();
 
 	std::vector<QString> &addedWords(const QString &word);
 
 	std::vector<std::unique_ptr<HunspellEngine>> _engines;
 	std::vector<QString> _activeLanguages;
+	// Use an empty Hunspell dictionary to fill it with our remembered words
+	// for getting suggests.
+	std::unique_ptr<Hunspell> _customDict;
 	WordsMap _ignoredWords;
 	WordsMap _addedWords;
 
@@ -171,6 +174,7 @@ std::vector<QString> HunspellService::activeLanguages() {
 }
 
 HunspellService::HunspellService() {
+	_customDict = std::make_unique<Hunspell>("", "");
 	readFile();
 }
 
@@ -280,6 +284,16 @@ void HunspellService::fillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 	const auto wordScript = ::Spellchecker::WordScript(&wrongWord);
+
+	const auto customGuesses = _customDict->suggest(wrongWord.toStdString());
+	*optionalSuggestions = ranges::view::all(
+		customGuesses
+	) | ranges::views::take(
+		kMaxSuggestions
+	) | ranges::views::transform([](auto &guess) {
+		return QString::fromStdString(guess);
+	}) | ranges::to_vector;
+
 	std::shared_lock lock(_engineMutex);
 	for (const auto &engine : _engines) {
 		if (wordScript != engine->script()) {
@@ -294,6 +308,7 @@ void HunspellService::fillSuggestionList(
 
 void HunspellService::ignoreWord(const QString &word) {
 	const auto wordScript = ::Spellchecker::WordScript(&word);
+	_customDict->add(word.toStdString());
 	_ignoredWords[wordScript].push_back(word);
 }
 
@@ -310,24 +325,29 @@ void HunspellService::addWord(const QString &word) {
 	if (count > kMaxSyncableDictionaryWords) {
 		return;
 	}
+	_customDict->add(word.toStdString());
 	addedWords(word).push_back(word);
 	writeToFile();
 }
 
 void HunspellService::removeWord(const QString &word) {
+	_customDict->remove(word.toStdString());
 	auto &vector = addedWords(word);
 	vector.erase(ranges::remove(vector, word), end(vector));
 	writeToFile();
 }
 
-void HunspellService::writeToFile() {
+void HunspellService::writeToFile(bool addToCustomDict) {
 	auto f = QFile(CustomDictionaryPath());
 	if (!f.open(QIODevice::WriteOnly)) {
 		return;
 	}
 	auto &&temp = ranges::views::join(
 		ranges::view::values(_addedWords))
-	| ranges::view::transform([](auto &str) {
+	| ranges::view::transform([&](auto &str) {
+		if (addToCustomDict) {
+			_customDict->add(str.toStdString());
+		}
 		return str + kLineBreak;
 	});
 	const auto result = ranges::accumulate(std::move(temp), QString{});
@@ -386,7 +406,7 @@ void HunspellService::readFile() {
 		_addedWords[script] = std::move(words);
 	}
 #endif
-	writeToFile();
+	writeToFile(true);
 }
 
 ////// End of HunspellService class.
