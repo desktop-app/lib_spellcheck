@@ -36,8 +36,6 @@ void UpdateLanguages(std::vector<int> languages);
 } // namespace Platform::Spellchecker
 
 // Platform dependent implementations.
-// TODO: We should use Hunspell for Win 7 and Linux.
-
 #ifdef Q_OS_MAC
 #include "spellcheck/platform/mac/spellcheck_mac.h"
 #elif defined Q_OS_WIN // Q_OS_MAC
