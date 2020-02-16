@@ -23,6 +23,7 @@ using WordsMap = std::map<QChar::Script, std::vector<QString>>;
 
 // Maximum number of words in the custom spellcheck dictionary.
 constexpr auto kMaxSyncableDictionaryWords = 1300;
+constexpr auto kTimeLimitSuggestion = crl::time(1000);
 
 #ifdef Q_OS_WIN
 const auto kLineBreak = QByteArrayLiteral("\r\n");
@@ -294,12 +295,17 @@ void HunspellService::fillSuggestionList(
 		return QString::fromStdString(guess);
 	}) | ranges::to_vector;
 
+	const auto startTime = crl::now();
+
 	std::shared_lock lock(_engineMutex);
 	for (const auto &engine : _engines) {
 		if (wordScript != engine->script()) {
 			continue;
 		}
 		if (optionalSuggestions->size()	== kMaxSuggestions) {
+			return;
+		}
+		if ((crl::now() - startTime) > kTimeLimitSuggestion) {
 			return;
 		}
 		engine->suggest(wrongWord, optionalSuggestions);
