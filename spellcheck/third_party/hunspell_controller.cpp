@@ -102,6 +102,7 @@ private:
 	WordsMap _addedWords;
 
 	std::atomic<int> _epoch = 0;
+	std::atomic<int> _suggestionsEpoch = 0;
 
 	std::shared_mutex _engineMutex;
 
@@ -184,6 +185,7 @@ std::vector<QString> &HunspellService::addedWords(const QString &word) {
 }
 
 void HunspellService::updateLanguages(std::vector<QString> langs) {
+	Expects(_suggestionsEpoch == 0);
 	_epoch += 1;
 
 	_activeLanguages.clear();
@@ -297,19 +299,27 @@ void HunspellService::fillSuggestionList(
 
 	const auto startTime = crl::now();
 
+	_suggestionsEpoch += 1;
+	const auto savedEpoch = _suggestionsEpoch.load();
+
 	std::shared_lock lock(_engineMutex);
 	for (const auto &engine : _engines) {
+		if (_suggestionsEpoch.load() > savedEpoch) {
+			// There is a newer request to fill suggestion list,
+			// So we should drop the current one.
+			optionalSuggestions->clear();
+			break;
+		}
+		if (optionalSuggestions->size()	== kMaxSuggestions
+			|| ((crl::now() - startTime) > kTimeLimitSuggestion)) {
+			break;
+		}
 		if (wordScript != engine->script()) {
 			continue;
 		}
-		if (optionalSuggestions->size()	== kMaxSuggestions) {
-			return;
-		}
-		if ((crl::now() - startTime) > kTimeLimitSuggestion) {
-			return;
-		}
 		engine->suggest(wrongWord, optionalSuggestions);
 	}
+	_suggestionsEpoch -= 1;
 }
 
 void HunspellService::ignoreWord(const QString &word) {
