@@ -28,9 +28,16 @@ namespace Spellchecker {
 class SpellingHighlighter final : public QSyntaxHighlighter {
 
 public:
+	struct CustomContextMenuItem {
+		QString title;
+		Fn<void()> callback;
+	};
+
 	SpellingHighlighter(
 		not_null<Ui::InputField*> field,
-		rpl::producer<bool> enabled);
+		rpl::producer<bool> enabled,
+		std::optional<CustomContextMenuItem> customContextMenuItem
+			= std::nullopt);
 
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
@@ -45,7 +52,7 @@ public:
 	// Are run asynchronously.
 	// And then the context menu is filled in the main thread.
 	void addSpellcheckerActions(
-		not_null<QMenu*> menu,
+		not_null<QMenu*> parentMenu,
 		QTextCursor cursorForPosition,
 		Fn<void()> showMenuCallback);
 
@@ -100,6 +107,8 @@ private:
 
 	not_null<Ui::InputField*> _field;
 	not_null<QTextEdit*> _textEdit;
+
+	const std::optional<CustomContextMenuItem> _customContextMenuItem;
 
 	rpl::lifetime _lifetime;
 

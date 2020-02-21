@@ -8,6 +8,7 @@
 
 namespace ph {
 
+phrase lng_spellchecker_submenu = "Spelling";
 phrase lng_spellchecker_add = "Add to Dictionary";
 phrase lng_spellchecker_remove = "Remove from Dictionary";
 phrase lng_spellchecker_ignore = "Ignore word";

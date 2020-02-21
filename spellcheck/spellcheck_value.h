@@ -10,6 +10,7 @@
 
 namespace ph {
 
+extern phrase lng_spellchecker_submenu;
 extern phrase lng_spellchecker_add;
 extern phrase lng_spellchecker_remove;
 extern phrase lng_spellchecker_ignore;
@@ -20,7 +21,7 @@ namespace Spellchecker {
 
 ////// Phrases.
 
-inline constexpr auto kPhrasesCount = 3;
+inline constexpr auto kPhrasesCount = 4;
 
 inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 	ph::details::set_values(std::move(data));
