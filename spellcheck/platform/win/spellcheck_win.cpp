@@ -269,7 +269,9 @@ std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
 // Some calls can be made in the main thread before spellchecking
 // (e.g. KnownLanguages), so we have to init it asynchronously first.
 void Init() {
-	crl::async(SharedSpellChecker);
+	if (IsSystemSpellchecker()) {
+		crl::async(SharedSpellChecker);
+	}
 }
 
 bool IsSystemSpellchecker() {
