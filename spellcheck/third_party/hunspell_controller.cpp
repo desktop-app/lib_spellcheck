@@ -89,7 +89,7 @@ public:
 	bool isWordInDictionary(const QString &word);
 
 private:
-	void writeToFile(bool addToCustomDict = false);
+	void writeToFile();
 	void readFile();
 
 	std::vector<QString> &addedWords(const QString &word);
@@ -377,17 +377,14 @@ void HunspellService::removeWord(const QString &word) {
 }
 
 // Thread: Main.
-void HunspellService::writeToFile(bool addToCustomDict) {
+void HunspellService::writeToFile() {
 	auto f = QFile(CustomDictionaryPath());
 	if (!f.open(QIODevice::WriteOnly)) {
 		return;
 	}
 	auto &&temp = ranges::views::join(
-		ranges::view::values(_addedWords))
-	| ranges::view::transform([&](auto &str) {
-		if (addToCustomDict) {
-			_customDict->add(str.toStdString());
-		}
+		ranges::view::values(_addedWords)
+	) | ranges::view::transform([&](auto &str) {
 		return str + kLineBreak;
 	});
 	const auto result = ranges::accumulate(std::move(temp), QString{});
@@ -417,19 +414,29 @@ void HunspellService::readFile() {
 	}
 
 	// {"a", "1", "β"};
-	auto splitedWords = QString(data).split(kLineBreak)
+	auto splitedWords = QString::fromUtf8(data).split(kLineBreak)
 		| ranges::to_vector
 		| ranges::actions::sort
 		| ranges::actions::unique;
 
-	// {{"a"}, {"β"}};
-	auto groupedWords = ranges::view::all(
+	auto filteredWords = (
 		splitedWords
 	) | ranges::views::filter([](auto &word) {
 		// Ignore words with mixed scripts or non-words characters.
 		return !word.isEmpty() && !IsWordSkippable(&word, false);
 	}) | ranges::views::take(
 		kMaxSyncableDictionaryWords
+	) | ranges::views::transform([](auto &word) {
+		return std::move(word);
+	}) | ranges::to_vector;
+
+	ranges::for_each(filteredWords, [&](auto &word) {
+		_customDict->add(word.toStdString());
+	});
+
+	// {{"a"}, {"β"}};
+	auto groupedWords = ranges::view::all(
+		filteredWords
 	) | ranges::view::group_by([](auto &a, auto &b) {
 		return WordScript(&a) == WordScript(&b);
 	}) | ranges::view::transform([](auto &&rng) {
@@ -449,7 +456,6 @@ void HunspellService::readFile() {
 	);
 	_addedWords = zip | ranges::to<WordsMap>();
 
-	writeToFile(true);
 }
 
 ////// End of HunspellService class.
