@@ -13,6 +13,7 @@
 #include <mutex>
 #include <shared_mutex>
 
+#include <QDir>
 #include <QFileInfo>
 #include <QTextCodec>
 
@@ -399,7 +400,14 @@ void HunspellService::readFile() {
 	using namespace ::Spellchecker;
 
 	auto f = QFile(CustomDictionaryPath());
-	if (!f.open(QIODevice::ReadOnly)) {
+
+	if (const auto info = QFileInfo(f);
+		!info.isFile()
+		|| (info.size() > 100 * 1024)
+		|| !f.open(QIODevice::ReadOnly)) {
+		if (info.isDir()) {
+			QDir(info.path()).removeRecursively();
+		}
 		return;
 	}
 	const auto data = f.readAll();
