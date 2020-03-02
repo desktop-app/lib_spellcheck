@@ -256,8 +256,8 @@ std::vector<QString> WindowsSpellChecker::systemLanguages() {
 
 ////// End of WindowsSpellChecker class.
 
-std::unique_ptr<WindowsSpellChecker>& SharedSpellChecker() {
-	static auto spellchecker = std::make_unique<WindowsSpellChecker>();
+WindowsSpellChecker &SharedSpellChecker() {
+	static auto spellchecker = WindowsSpellChecker();
 	return spellchecker;
 }
 
@@ -282,7 +282,7 @@ bool IsSystemSpellchecker() {
 
 std::vector<QString> ActiveLanguages() {
 	if (IsSystemSpellchecker()) {
-		return SharedSpellChecker()->systemLanguages();
+		return SharedSpellChecker().systemLanguages();
 	}
 	return ThirdParty::ActiveLanguages();
 }
@@ -291,14 +291,14 @@ bool CheckSpelling(const QString &wordToCheck) {
 	if (!IsSystemSpellchecker()) {
 		return ThirdParty::CheckSpelling(wordToCheck);
 	}
-	return SharedSpellChecker()->checkSpelling(Q2WString(wordToCheck));
+	return SharedSpellChecker().checkSpelling(Q2WString(wordToCheck));
 }
 
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 	if (IsSystemSpellchecker()) {
-		SharedSpellChecker()->fillSuggestionList(
+		SharedSpellChecker().fillSuggestionList(
 			Q2WString(wrongWord),
 			optionalSuggestions);
 		return;
@@ -310,7 +310,7 @@ void FillSuggestionList(
 
 void AddWord(const QString &word) {
 	if (IsSystemSpellchecker()) {
-		SharedSpellChecker()->addWord(Q2WString(word));
+		SharedSpellChecker().addWord(Q2WString(word));
 	} else {
 		ThirdParty::AddWord(word);
 	}
@@ -318,7 +318,7 @@ void AddWord(const QString &word) {
 
 void RemoveWord(const QString &word) {
 	if (IsSystemSpellchecker()) {
-		SharedSpellChecker()->removeWord(Q2WString(word));
+		SharedSpellChecker().removeWord(Q2WString(word));
 	} else {
 		ThirdParty::RemoveWord(word);
 	}
@@ -326,7 +326,7 @@ void RemoveWord(const QString &word) {
 
 void IgnoreWord(const QString &word) {
 	if (IsSystemSpellchecker()) {
-		SharedSpellChecker()->ignoreWord(Q2WString(word));
+		SharedSpellChecker().ignoreWord(Q2WString(word));
 	} else {
 		ThirdParty::IgnoreWord(word);
 	}
@@ -357,7 +357,7 @@ void CheckSpellingText(
 	const QString &text,
 	MisspelledWords *misspelledWords) {
 	if (IsSystemSpellchecker()) {
-		SharedSpellChecker()->checkSpellingText(
+		SharedSpellChecker().checkSpellingText(
 			Q2WString(text),
 			misspelledWords);
 		return;

@@ -461,8 +461,8 @@ void HunspellService::readFile() {
 ////// End of HunspellService class.
 
 
-std::unique_ptr<HunspellService>& SharedSpellChecker() {
-	static auto spellchecker = std::make_unique<HunspellService>();
+HunspellService &SharedSpellChecker() {
+	static auto spellchecker = HunspellService();
 	return spellchecker;
 }
 
@@ -470,29 +470,29 @@ std::unique_ptr<HunspellService>& SharedSpellChecker() {
 } // namespace
 
 bool CheckSpelling(const QString &wordToCheck) {
-	return SharedSpellChecker()->checkSpelling(wordToCheck);
+	return SharedSpellChecker().checkSpelling(wordToCheck);
 }
 
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	SharedSpellChecker()->fillSuggestionList(wrongWord, optionalSuggestions);
+	SharedSpellChecker().fillSuggestionList(wrongWord, optionalSuggestions);
 }
 
 void AddWord(const QString &word) {
-	SharedSpellChecker()->addWord(word);
+	SharedSpellChecker().addWord(word);
 }
 
 void RemoveWord(const QString &word) {
-	SharedSpellChecker()->removeWord(word);
+	SharedSpellChecker().removeWord(word);
 }
 
 void IgnoreWord(const QString &word) {
-	SharedSpellChecker()->ignoreWord(word);
+	SharedSpellChecker().ignoreWord(word);
 }
 
 bool IsWordInDictionary(const QString &wordToCheck) {
-	return SharedSpellChecker()->isWordInDictionary(wordToCheck);
+	return SharedSpellChecker().isWordInDictionary(wordToCheck);
 }
 
 void UpdateLanguages(std::vector<int> languages) {
@@ -504,11 +504,11 @@ void UpdateLanguages(std::vector<int> languages) {
 	) | ranges::to_vector;
 
 	::Spellchecker::UpdateSupportedScripts(std::vector<QString>());
-	SharedSpellChecker()->updateLanguages(languageCodes);
+	SharedSpellChecker().updateLanguages(languageCodes);
 }
 
 std::vector<QString> ActiveLanguages() {
-	return SharedSpellChecker()->activeLanguages();
+	return SharedSpellChecker().activeLanguages();
 }
 
 void CheckSpellingText(
