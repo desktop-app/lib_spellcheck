@@ -432,28 +432,23 @@ void HunspellService::readFile() {
 		kMaxSyncableDictionaryWords
 	) | ranges::view::group_by([](auto &a, auto &b) {
 		return WordScript(&a) == WordScript(&b);
+	}) | ranges::view::transform([](auto &&rng) {
+		return rng | ranges::to_vector;
 	}) | ranges::to_vector;
 
 	// {QChar::Script_Latin, QChar::Script_Greek};
-	auto &&scripts = ranges::view::all(
+	auto scripts = ranges::view::all(
 		groupedWords
 	) | ranges::view::transform([](auto &vector) {
 		return WordScript(&vector.front());
-	});
+	}) | ranges::to_vector;
 
 	// {QChar::Script_Latin : {"a"}, QChar::Script_Greek : {"β"}};
 	auto &&zip = ranges::view::zip(
 		scripts, groupedWords
 	);
-#ifndef Q_OS_WIN
-	_addedWords = zip | ranges::to<WordsMap>;
-#else
-	// This is a workaround for the MSVC compiler.
-	// Something is wrong with the group_by method or with me. =(
-	for (auto &&[script, words] : zip) {
-		_addedWords[script] = std::move(words);
-	}
-#endif
+	_addedWords = zip | ranges::to<WordsMap>();
+
 	writeToFile(true);
 }
 
