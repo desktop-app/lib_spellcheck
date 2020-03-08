@@ -158,7 +158,8 @@ bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
 			ULONG errorLength = 0;
 			CORRECTIVE_ACTION action = CORRECTIVE_ACTION_NONE;
 			hr = spellingErrors->Next(&spellingError);
-			if (SUCCEEDED(hr) && spellingError &&
+			if (SUCCEEDED(hr) &&
+				spellingError &&
 				SUCCEEDED(spellingError->get_StartIndex(&startIndex)) &&
 				SUCCEEDED(spellingError->get_Length(&errorLength)) &&
 				SUCCEEDED(spellingError->get_CorrectiveAction(&action)) &&

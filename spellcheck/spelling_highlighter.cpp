@@ -119,8 +119,8 @@ inline QChar AddedSymbol(QStringView text, int position, int added) {
 }
 
 inline MisspelledWord CorrectAccentValues(
-	const QString &oldText,
-	const QString &newText) {
+		const QString &oldText,
+		const QString &newText) {
 	auto diff = std::vector<int>();
 	const auto sizeOfDiff = newText.size() - oldText.size();
 	if (sizeOfDiff <= 0 || sizeOfDiff > kMaxDeadKeys) {
@@ -159,7 +159,7 @@ SpellingHighlighter::SpellingHighlighter(
 , _customContextMenuItem(customContextMenuItem) {
 #ifdef Q_OS_WIN
 	Platform::Spellchecker::Init();
-#endif
+#endif // !Q_OS_WIN
 
 	_textEdit->installEventFilter(this);
 	_textEdit->viewport()->installEventFilter(this);
@@ -302,10 +302,11 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	_cachedRanges = (
 		_cachedRanges
 	) | ranges::view::filter([&](const auto &range) {
-		if (IntersectsWordRanges(range, wordUnderPos)) {
+		const auto isIntersected = IntersectsWordRanges(range, wordUnderPos);
+		if (isIntersected) {
 			return isPosNotInWord;
 		}
-		return !(IntersectsWordRanges(range, wordUnderPos)
+		return !(isIntersected
 			|| (removed > 0 && IntersectsWordRanges(range, pos, removed)));
 	}) | ranges::to_vector;
 
@@ -403,7 +404,7 @@ void SpellingHighlighter::checkChangedText() {
 }
 
 MisspelledWords SpellingHighlighter::filterSkippableWords(
-	MisspelledWords &ranges) {
+		MisspelledWords &ranges) {
 	const auto text = documentText();
 	if (text.isEmpty()) {
 		return MisspelledWords();
@@ -440,9 +441,9 @@ void SpellingHighlighter::checkCurrentText() {
 }
 
 void SpellingHighlighter::invokeCheckText(
-	int textPosition,
-	int textLength,
-	Fn<void(const MisspelledWords &ranges)> callback) {
+		int textPosition,
+		int textLength,
+		Fn<void(const MisspelledWords &ranges)> callback) {
 	if (!_enabled) {
 		return;
 	}
@@ -556,7 +557,7 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 		}
 		const auto frPos = fragment.position();
 		const auto frLen = fragment.length();
-		if (!IntersectsWordRanges({frPos, frLen}, begin, length)) {
+		if (!IntersectsWordRanges({ frPos, frLen }, begin, length)) {
 			continue;
 		}
 		const auto format = fragment.charFormat();
@@ -612,12 +613,12 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 			return false;
 		}
 		// Copy of QContextMenuEvent.
-		const auto copyEvent = QContextMenuEvent(
+		auto copyEvent = QContextMenuEvent(
 			c->reason(),
 			c->pos(),
 			c->globalPos());
-		const auto showMenu = [=, copyEvent = std::move(copyEvent)] {
-			_contextMenuCreated.fire({menu, copyEvent});
+		auto showMenu = [=, copyEvent = std::move(copyEvent)] {
+			_contextMenuCreated.fire({ menu, copyEvent });
 		};
 		addSpellcheckerActions(
 			std::move(menu),
@@ -677,9 +678,8 @@ QTextBlock SpellingHighlighter::findBlock(int pos) {
 }
 
 std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
-	int pos,
-	int length) {
-
+		int pos,
+		int length) {
 	auto b = findBlock(pos);
 	auto blocks = std::vector<QTextBlock>{b};
 	const auto end = pos + length;
@@ -692,9 +692,9 @@ std::vector<QTextBlock> SpellingHighlighter::blocksFromRange(
 }
 
 int SpellingHighlighter::compareDocumentText(
-	const QString &text,
-	int textPos,
-	int textLen) {
+		const QString &text,
+		int textPos,
+		int textLen) {
 	if (_lastPlainText.size() < textPos + textLen) {
 		return -1;
 	}
@@ -766,31 +766,32 @@ void SpellingHighlighter::addSpellcheckerActions(
 		if (isCorrect) {
 			if (Platform::Spellchecker::IsWordInDictionary(word)) {
 				addSeparator();
+				auto remove = [=] {
+					Platform::Spellchecker::RemoveWord(word);
+					checkCurrentText();
+				};
 				menu->addAction(
 					ph::lng_spellchecker_remove(ph::now),
-					[=] {
-						Platform::Spellchecker::RemoveWord(word);
-						checkCurrentText();
-				});
+					std::move(remove));
 			}
 			return;
 		}
 
 		addSeparator();
 
-		menu->addAction(
-			ph::lng_spellchecker_add(ph::now),
-			[=] {
-				Platform::Spellchecker::AddWord(word);
-				checkCurrentText();
-		});
+		auto add = [=] {
+			Platform::Spellchecker::AddWord(word);
+			checkCurrentText();
+		};
+		menu->addAction(ph::lng_spellchecker_add(ph::now), std::move(add));
 
+		auto ignore = [=] {
+			Platform::Spellchecker::IgnoreWord(word);
+			checkCurrentText();
+		};
 		menu->addAction(
 			ph::lng_spellchecker_ignore(ph::now),
-			[=] {
-				Platform::Spellchecker::IgnoreWord(word);
-				checkCurrentText();
-		});
+			std::move(ignore));
 
 		if (suggestions.empty()) {
 			return;
@@ -798,7 +799,7 @@ void SpellingHighlighter::addSpellcheckerActions(
 
 		addSeparator();
 		for (const auto &suggestion : suggestions) {
-			const auto replaceWord = [=] {
+			auto replaceWord = [=] {
 				const auto oldTextCursor = _textEdit->textCursor();
 				_textEdit->setTextCursor(newTextCursor);
 				_textEdit->textCursor().insertText(suggestion);
