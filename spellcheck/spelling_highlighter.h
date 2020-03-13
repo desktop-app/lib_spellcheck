@@ -54,7 +54,8 @@ public:
 	void addSpellcheckerActions(
 		not_null<QMenu*> parentMenu,
 		QTextCursor cursorForPosition,
-		Fn<void()> showMenuCallback);
+		Fn<void()> showMenuCallback,
+		QPoint mousePosition);
 
 protected:
 	void highlightBlock(const QString &text) override;

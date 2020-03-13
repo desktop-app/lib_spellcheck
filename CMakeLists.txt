@@ -29,6 +29,8 @@ PRIVATE
     spellcheck/spellcheck_types.h
     spellcheck/spelling_highlighter.cpp
     spellcheck/spelling_highlighter.h
+    spellcheck/spelling_highlighter_helper.cpp
+    spellcheck/spelling_highlighter_helper.h
     spellcheck/spellcheck_value.cpp
     spellcheck/spellcheck_value.h
 )

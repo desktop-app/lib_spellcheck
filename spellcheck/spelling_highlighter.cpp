@@ -9,6 +9,7 @@
 
 #include "spellcheck/spellcheck_value.h"
 #include "spellcheck/spellcheck_utils.h"
+#include "spellcheck/spelling_highlighter_helper.h"
 #include "styles/palette.h"
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
@@ -623,7 +624,8 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		addSpellcheckerActions(
 			std::move(menu),
 			_textEdit->cursorForPosition(c->pos()),
-			std::move(showMenu));
+			std::move(showMenu),
+			c->globalPos());
 		return true;
 	} else if (e->type() == QEvent::KeyPress) {
 		const auto k = static_cast<QKeyEvent *>(e);
@@ -708,7 +710,8 @@ int SpellingHighlighter::compareDocumentText(
 void SpellingHighlighter::addSpellcheckerActions(
 		not_null<QMenu*> parentMenu,
 		QTextCursor cursorForPosition,
-		Fn<void()> showMenuCallback) {
+		Fn<void()> showMenuCallback,
+		QPoint mousePosition) {
 
 	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
 		&& _customContextMenuItem.has_value();
@@ -729,8 +732,15 @@ void SpellingHighlighter::addSpellcheckerActions(
 
 	auto addToParentAndShow = [=] {
 		if (!menu->isEmpty()) {
-			parentMenu->addSeparator();
-			parentMenu->addMenu(menu);
+			using namespace Spelling::Helper;
+			if (IsContextMenuTop(parentMenu, mousePosition)) {
+				parentMenu->addSeparator();
+				parentMenu->addMenu(menu);
+			} else {
+				const auto first = parentMenu->actions().first();
+				parentMenu->insertMenu(first, menu);
+				parentMenu->insertSeparator(first);
+			}
 		}
 		showMenuCallback();
 	};
