@@ -118,10 +118,8 @@ HunspellEngine::HunspellEngine(const QString &lang)
 	if (workingDir.isEmpty()) {
 		return;
 	}
-	const auto dictPath = QString("%1/%2/%2")
-		.arg(workingDir)
-		.arg(lang)
-		.toUtf8();
+	const auto rawPath = QString("%1/%2/%2").arg(workingDir).arg(lang);
+	const auto dictPath = QDir::toNativeSeparators(rawPath).toUtf8();
 
 	const auto affPath = dictPath + ".aff";
 	const auto dicPath = dictPath + ".dic";
@@ -130,7 +128,14 @@ HunspellEngine::HunspellEngine(const QString &lang)
 		return;
 	}
 
+#ifdef Q_OS_WIN
+	_hunspell = std::make_unique<Hunspell>(
+		"\\\\?\\" + affPath,
+		"\\\\?\\" + dicPath);
+#else // Q_OS_WIN
 	_hunspell = std::make_unique<Hunspell>(affPath, dicPath);
+#endif // !Q_OS_WIN
+
 	_codec = QTextCodec::codecForName(_hunspell->get_dic_encoding());
 	if (!_codec) {
 		_hunspell.reset();
