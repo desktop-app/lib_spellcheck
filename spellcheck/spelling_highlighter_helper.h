@@ -9,6 +9,7 @@ namespace Spelling::Helper {
 
 [[nodiscard]] bool IsContextMenuTop(
 	not_null<QMenu*> menu,
-	QPoint mousePosition);
+	QPoint mousePosition,
+	int additionalItems = 0);
 
 } // namespace Spelling::Helper

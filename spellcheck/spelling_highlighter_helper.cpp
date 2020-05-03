@@ -23,7 +23,10 @@ const auto kSpellingItem = 1;
 
 }
 
-bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
+bool IsContextMenuTop(
+	not_null<QMenu*> menu,
+	QPoint mousePosition,
+	int additionalItems) {
 	const auto &st = st::defaultMenu;
 	const auto &stPopup = st::defaultPopupMenu;
 
@@ -44,7 +47,7 @@ bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 	auto sepCount = ranges::count_if(actions, &QAction::isSeparator);
 	auto itemsCount = actions.size() - sepCount;
 	sepCount += additional;
-	itemsCount += additional;
+	itemsCount += additional + additionalItems;
 
 	const auto w = mousePosition - QPoint(0, p.top());
 	const auto r = QApplication::desktop()->screenGeometry(mousePosition);

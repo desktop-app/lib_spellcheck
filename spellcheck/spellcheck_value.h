@@ -32,4 +32,7 @@ inline void SetPhrases(ph::details::phrase_value_array<kPhrasesCount> data) {
 [[nodiscard]] QString WorkingDirPath();
 void SetWorkingDirPath(const QString &path);
 
+[[nodiscard]] bool AreSuggestionsFlat();
+void SetSuggestionsFlat(bool value);
+
 } // namespace Spellchecker

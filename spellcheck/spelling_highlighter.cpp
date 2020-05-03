@@ -713,6 +713,8 @@ void SpellingHighlighter::addSpellcheckerActions(
 		Fn<void()> showMenuCallback,
 		QPoint mousePosition) {
 
+	const auto areSugsInSubmenu = !::Spellchecker::AreSuggestionsFlat();
+
 	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
 		&& _customContextMenuItem.has_value();
 
@@ -731,7 +733,7 @@ void SpellingHighlighter::addSpellcheckerActions(
 		parentMenu);
 
 	auto addToParentAndShow = [=] {
-		if (!menu->isEmpty()) {
+		if (!menu->isEmpty() && areSugsInSubmenu) {
 			using namespace Spelling::Helper;
 			if (IsContextMenuTop(parentMenu, mousePosition)) {
 				parentMenu->addSeparator();
@@ -807,16 +809,46 @@ void SpellingHighlighter::addSpellcheckerActions(
 			return;
 		}
 
-		addSeparator();
-		for (const auto &suggestion : suggestions) {
+		auto actions = QList<QAction *>::fromStdList(ranges::view::all(
+			suggestions
+		) | ranges::view::transform([&](const auto &suggestion) {
 			auto replaceWord = [=] {
 				const auto oldTextCursor = _textEdit->textCursor();
 				_textEdit->setTextCursor(newTextCursor);
 				_textEdit->textCursor().insertText(suggestion);
 				_textEdit->setTextCursor(oldTextCursor);
 			};
-			menu->addAction(suggestion, std::move(replaceWord));
+			auto *result = new QAction(suggestion, parentMenu);
+			connect(result, &QAction::triggered, std::move(replaceWord));
+
+			return result;
+		}) | ranges::to<std::list<QAction *>> | ranges::actions::reverse);
+
+		if (areSugsInSubmenu) {
+			addSeparator();
+			menu->addActions(actions);
+			return;
 		}
+
+		const auto isToTop = !areSugsInSubmenu
+			&& Spelling::Helper::IsContextMenuTop(
+				parentMenu,
+				mousePosition,
+				actions.size());
+
+		if (isToTop) {
+			parentMenu->addSeparator();
+			parentMenu->addMenu(menu);
+			parentMenu->addActions(actions);
+		} else {
+			const auto first = [&] { return parentMenu->actions().first(); };
+			parentMenu->insertSeparator(first());
+			parentMenu->insertMenu(first(), menu);
+			for (int i = 0; i < actions.count(); i++) {
+				parentMenu->insertAction(first(), actions.at(i));
+			}
+		}
+
 	};
 
 	const auto weak = Ui::MakeWeak(this);

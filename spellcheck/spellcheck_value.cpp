@@ -19,6 +19,7 @@ namespace Spellchecker {
 namespace {
 
 QString WorkingDir = QString();
+bool SuggestionsFlat = false;
 
 } // namespace
 
@@ -28,6 +29,14 @@ QString WorkingDirPath() {
 
 void SetWorkingDirPath(const QString &path) {
 	WorkingDir = path;
+}
+
+bool AreSuggestionsFlat() {
+	return SuggestionsFlat;
+}
+
+void SetSuggestionsFlat(bool value) {
+	SuggestionsFlat = value;
 }
 
 } // namespace Spellchecker
