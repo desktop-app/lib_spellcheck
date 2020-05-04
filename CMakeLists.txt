@@ -20,6 +20,15 @@ if ((APPLE OR WIN32 OR use_enchant) AND NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
     set(system_spellchecker 1)
 endif()
 
+# Workaround for error: Objective-C 1 was disabled in PCH file but is currently enabled
+if (CMAKE_CXX_COMPILER_ID MATCHES Clang)
+    file(GLOB ObjcFiles spellcheck/platform/mac/*.mm)
+    set_source_files_properties(${ObjcFiles} PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON
+        COMPILE_FLAGS "--include spellcheck/spellcheck_pch.h"
+    )
+endif()
+
 target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
 nice_target_sources(lib_spellcheck ${src_loc}
 PRIVATE
