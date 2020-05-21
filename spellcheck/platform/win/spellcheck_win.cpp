@@ -34,9 +34,12 @@ inline LPCWSTR Q2WString(QStringView string) {
 inline auto SystemLanguages() {
 	const auto appdata = qEnvironmentVariable("appdata");
 	const auto dir = QDir(appdata + QString("\\Microsoft\\Spelling"));
-	return (dir.exists()
+	QStringList list(SystemLanguage());
+	list << (dir.exists()
 		? dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)
-		: QLocale::system().uiLanguages()).toVector().toStdVector();
+		: QLocale::system().uiLanguages());
+	list.removeDuplicates();
+	return list | ranges::to_vector;
 }
 
 // WindowsSpellChecker class is used to store all the COM objects and
@@ -65,7 +68,7 @@ private:
 	void createSpellCheckers();
 
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
-	std::map<QString, ComPtr<ISpellChecker>> _spellcheckerMap;
+	std::vector<std::pair<QString, ComPtr<ISpellChecker>>> _spellcheckerMap;
 
 };
 
@@ -91,7 +94,7 @@ void WindowsSpellChecker::createSpellCheckers() {
 		if (!isLanguageSupported(wlang)) {
 			continue;
 		}
-		if (_spellcheckerMap.find(lang) != _spellcheckerMap.end()) {
+		if (ranges::contains(ranges::views::keys(_spellcheckerMap), lang)) {
 			continue;
 		}
 		ComPtr<ISpellChecker> spellchecker;
@@ -99,7 +102,7 @@ void WindowsSpellChecker::createSpellCheckers() {
 			wlang,
 			&spellchecker);
 		if (SUCCEEDED(hr)) {
-			_spellcheckerMap.insert({ lang, spellchecker });
+			_spellcheckerMap.push_back({ lang, spellchecker });
 		}
 	}
 }
