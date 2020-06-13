@@ -40,6 +40,6 @@ void UpdateLanguages(std::vector<int> languages);
 #include "spellcheck/platform/mac/spellcheck_mac.h"
 #elif defined Q_OS_WIN // Q_OS_MAC
 #include "spellcheck/platform/win/spellcheck_win.h"
-#elif defined Q_OS_WINRT || defined Q_OS_LINUX // Q_OS_MAC || Q_OS_WIN
+#elif defined Q_OS_UNIX // Q_OS_MAC || Q_OS_WIN
 #include "spellcheck/platform/linux/spellcheck_linux.h"
-#endif // Q_OS_MAC || Q_OS_WIN || Q_OS_WINRT || Q_OS_LINUX
+#endif // Q_OS_MAC || Q_OS_WIN || Q_OS_UNIX
