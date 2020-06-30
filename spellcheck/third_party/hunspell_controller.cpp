@@ -247,7 +247,7 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 			if (!engine->isValid()) {
 				return nullptr;
 			}
-			return std::move(engine);
+			return engine;
 		}) | ranges::to_vector;
 
 		if (savedEpoch != epoch.get()->load()) {
