@@ -8,6 +8,7 @@
 
 #include "base/platform/mac/base_utilities_mac.h"
 
+#import <AppKit/NSSpellChecker.h>
 #import <QuartzCore/QuartzCore.h>
 
 #include <QtCore/QLocale>
