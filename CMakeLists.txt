@@ -4,7 +4,7 @@
 # For license and copyright information please follow this link:
 # https://github.com/desktop-app/legal/blob/master/LEGAL
 
-add_library(lib_spellcheck OBJECT)
+add_library(lib_spellcheck STATIC)
 add_library(desktop-app::lib_spellcheck ALIAS lib_spellcheck)
 init_target(lib_spellcheck)
 
@@ -62,7 +62,7 @@ if (NOT system_spellchecker OR WIN32)
         spellcheck/third_party/hunspell_controller.cpp
         spellcheck/third_party/hunspell_controller.h
     )
-    target_link_libraries(lib_spellcheck PUBLIC desktop-app::external_hunspell)
+    target_link_libraries(lib_spellcheck PRIVATE desktop-app::external_hunspell)
 endif()
 
 target_include_directories(lib_spellcheck
@@ -71,8 +71,14 @@ PUBLIC
 )
 
 target_link_libraries(lib_spellcheck
-PUBLIC
+PRIVATE
     desktop-app::lib_ui
+    desktop-app::lib_base
+    desktop-app::lib_rpl
+    desktop-app::lib_crl
+    desktop-app::external_qt
+    desktop-app::external_ranges
+    desktop-app::external_gsl
 )
 
 if (LINUX AND use_enchant)
@@ -80,5 +86,5 @@ if (LINUX AND use_enchant)
 
     pkg_search_module(ENCHANT REQUIRED enchant-2 enchant)
     target_include_directories(lib_spellcheck PRIVATE ${ENCHANT_INCLUDE_DIRS})
-    target_link_libraries(lib_spellcheck PUBLIC ${CMAKE_DL_LIBS})
+    target_link_libraries(lib_spellcheck PRIVATE ${CMAKE_DL_LIBS})
 endif()
