@@ -104,6 +104,8 @@ private:
 	int _lastPosition = 0;
 	bool _enabled = true;
 
+	bool _isLastKeyRepeat = false;
+
 	base::Timer _coldSpellcheckingTimer;
 
 	not_null<Ui::InputField*> _field;

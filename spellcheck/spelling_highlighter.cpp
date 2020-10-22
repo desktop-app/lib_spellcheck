@@ -161,9 +161,6 @@ SpellingHighlighter::SpellingHighlighter(
 	Platform::Spellchecker::Init();
 #endif // !Q_OS_WIN
 
-	_textEdit->installEventFilter(this);
-	_textEdit->viewport()->installEventFilter(this);
-
 	_cachedRanges = MisspelledWords();
 
 	// Use the patched SpellCheckUnderline style.
@@ -203,6 +200,13 @@ SpellingHighlighter::SpellingHighlighter(
 		enabled
 	) | rpl::start_with_next([=](bool value) {
 		setEnabled(value);
+		if (_enabled) {
+			_textEdit->installEventFilter(this);
+			_textEdit->viewport()->installEventFilter(this);
+		} else {
+			_textEdit->removeEventFilter(this);
+			_textEdit->viewport()->removeEventFilter(this);
+		}
 	}, _lifetime);
 
 	Spellchecker::SupportedScriptsChanged(
@@ -347,7 +351,9 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 			_lastPosition--;
 			_addedSymbols++;
 		}
-
+		if (_isLastKeyRepeat) {
+			return;
+		}
 		checkChangedText();
 	}
 }
@@ -633,6 +639,21 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		if (ranges::contains(kKeysToCheck, k->key())) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
 				checkCurrentText();
+			}
+		} else if ((o == _textEdit) && k->isAutoRepeat()) {
+			_isLastKeyRepeat = true;
+		}
+	} else if (_isLastKeyRepeat && (o == _textEdit)) {
+		if (e->type() == QEvent::FocusOut) {
+			_isLastKeyRepeat = false;
+			if (_addedSymbols + _removedSymbols + _lastPosition) {
+				checkCurrentText();
+			}
+		} else if (e->type() == QEvent::KeyRelease) {
+			const auto k = static_cast<QKeyEvent*>(e);
+			if (!k->isAutoRepeat()) {
+				_isLastKeyRepeat = false;
+				_coldSpellcheckingTimer.callOnce(kColdSpellcheckingTimeout);
 			}
 		}
 	} else if ((o == _textEdit->viewport())
