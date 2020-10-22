@@ -69,7 +69,7 @@ private:
 	void invokeCheckText(
 		int textPosition,
 		int textLength,
-		Fn<void(const MisspelledWords &ranges)> callback);
+		Fn<void(MisspelledWords &&ranges)> callback);
 
 	void checkChangedText();
 	void checkSingleWord(const MisspelledWord &singleWord);

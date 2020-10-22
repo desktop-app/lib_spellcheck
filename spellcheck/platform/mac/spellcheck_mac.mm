@@ -58,7 +58,7 @@ std::vector<QString> ActiveLanguages() {
 
 bool CheckSpelling(const QString &wordToCheck) {
 	const auto wordLength = wordToCheck.length();
-	NSArray<NSTextCheckingResult *> *spellRanges =
+	NSArray<NSTextCheckingResult*> *spellRanges =
 		[SharedSpellChecker()
 			checkString:Q2NSString(std::move(wordToCheck))
 			range:NSMakeRange(0, wordLength)
@@ -80,7 +80,7 @@ void CheckSpellingText(
 // Probably never gonna be defined.
 #ifdef SPELLCHECKER_MAC_AUTO_CHECK_TEXT
 
-	NSArray<NSTextCheckingResult *> *spellRanges =
+	NSArray<NSTextCheckingResult*> *spellRanges =
 		[SharedSpellChecker()
 			checkString:Q2NSString(text)
 			range:NSMakeRange(0, text.length())

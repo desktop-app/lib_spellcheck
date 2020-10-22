@@ -220,7 +220,7 @@ QChar::Script LocaleToScriptCode(const QString &locale) {
 
 QChar::Script WordScript(const QStringRef &word) {
 	// Find the first letter.
-	const auto firstLetter = ranges::find_if(word, [&](QChar c) {
+	const auto firstLetter = ranges::find_if(word, [](QChar c) {
 		return c.isLetter();
 	});
 	return firstLetter == word.end()
@@ -237,12 +237,12 @@ bool IsWordSkippable(const QStringRef &word, bool checkSupportedScripts) {
 		&& !ranges::contains(SupportedScripts, wordScript)) {
 		return true;
 	}
-	return ranges::find_if(word, [&](QChar c) {
+	return ranges::any_of(word, [&](QChar c) {
 		return (c.script() != wordScript)
 			&& !IsAcuteAccentChar(c)
 			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
 			&& (c.unicode() != '_'); // This is not a word separator.
-	}) != word.end();
+	});
 }
 
 void UpdateSupportedScripts(std::vector<QString> languages) {

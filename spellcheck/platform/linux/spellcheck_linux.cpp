@@ -143,9 +143,9 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 		// Hspell is the spell checker that only checks words in Hebrew.
 		// It returns 'true' for any non-Hebrew word,
 		// so we should skip Hspell if a word is not in Hebrew.
-		if (ranges::find_if(_hspells, [&](auto &v) {
+		if (ranges::any_of(_hspells, [&](auto &v) {
 				return v == validator.get();
-			}) != _hspells.end()) {
+			})) {
 			return false;
 		}
 		if (validator->get_lang().find("uk") == 0) {

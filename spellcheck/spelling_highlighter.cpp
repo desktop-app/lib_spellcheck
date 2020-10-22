@@ -80,10 +80,9 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	if (tag.isEmpty()) {
 		return false;
 	}
-	const auto isCommonFormatting = ranges::find_if(
-		kUnspellcheckableTags, [&](const auto *t) {
-			return t == tag;
-	}) != end(kUnspellcheckableTags);
+	const auto isCommonFormatting = ranges::any_of(
+		kUnspellcheckableTags,
+		[&](const auto *t) { return t == tag; });
 
 	if (isCommonFormatting) {
 		return true;
@@ -390,12 +389,13 @@ void SpellingHighlighter::checkChangedText() {
 		const auto beginNewSelection = wordUnderCursor.first;
 		const auto endNewSelection = EndOfWord(lastWordNewSelection);
 
+		auto callback = [=](MisspelledWords &&r) {
+			ranges::insert(_cachedRanges, wordInCacheIt(), std::move(r));
+		};
 		invokeCheckText(
 			beginNewSelection,
 			endNewSelection - beginNewSelection,
-			[=](const MisspelledWords &r) {
-				ranges::insert(_cachedRanges, wordInCacheIt(), std::move(r));
-		});
+			std::move(callback));
 		return;
 	}
 
@@ -436,7 +436,7 @@ void SpellingHighlighter::checkCurrentText() {
 		_cachedRanges.clear();
 		return;
 	}
-	invokeCheckText(0, size(), [&](const MisspelledWords &ranges) {
+	invokeCheckText(0, size(), [&](MisspelledWords &&ranges) {
 		_cachedRanges = std::move(ranges);
 	});
 }
@@ -444,7 +444,7 @@ void SpellingHighlighter::checkCurrentText() {
 void SpellingHighlighter::invokeCheckText(
 		int textPosition,
 		int textLength,
-		Fn<void(const MisspelledWords &ranges)> callback) {
+		Fn<void(MisspelledWords &&ranges)> callback) {
 	if (!_enabled) {
 		return;
 	}
@@ -608,7 +608,7 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		return false;
 	}
 	if (e->type() == QEvent::ContextMenu) {
-		const auto c = static_cast<QContextMenuEvent *>(e);
+		const auto c = static_cast<QContextMenuEvent*>(e);
 		const auto menu = _textEdit->createStandardContextMenu();
 		if (!menu || !c) {
 			return false;
@@ -628,7 +628,7 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 			c->globalPos());
 		return true;
 	} else if (e->type() == QEvent::KeyPress) {
-		const auto k = static_cast<QKeyEvent *>(e);
+		const auto k = static_cast<QKeyEvent*>(e);
 
 		if (ranges::contains(kKeysToCheck, k->key())) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
