@@ -7,21 +7,20 @@
 
 #include "spellcheck/spelling_highlighter.h"
 
-#include "styles/palette.h"
-#include "styles/style_widgets.h"
 #include "ui/platform/ui_platform_utility.h"
+#include "base/qt_adapters.h"
+#include "styles/style_widgets.h"
+#include "styles/palette.h"
 
-#include <QtWidgets/QApplication>
-#include <QtWidgets/QDesktopWidget>
+#include <QtGui/QScreen>
 
 namespace Spelling::Helper {
-
 namespace {
 
 const auto kFormattingItem = 1;
 const auto kSpellingItem = 1;
 
-}
+} // namespace
 
 bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 	const auto &st = st::defaultMenu;
@@ -47,7 +46,11 @@ bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 	itemsCount += additional;
 
 	const auto w = mousePosition - QPoint(0, p.top());
-	const auto r = QApplication::desktop()->screenGeometry(mousePosition);
+	const auto screen = base::QScreenNearestTo(mousePosition);
+	if (!screen) {
+		return false;
+	}
+	const auto r = screen->availableGeometry();
 	const auto height = itemHeight * itemsCount
 		+ sepHeight * sepCount
 		+ p.top()
