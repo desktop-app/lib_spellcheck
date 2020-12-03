@@ -33,6 +33,8 @@ PRIVATE
     spellcheck/spelling_highlighter_helper.h
     spellcheck/spellcheck_value.cpp
     spellcheck/spellcheck_value.h
+
+    spellcheck/spellcheck_pch.h
 )
 
 if (system_spellchecker)
