@@ -82,7 +82,7 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	}
 	const auto isCommonFormatting = ranges::any_of(
 		kUnspellcheckableTags,
-		[&](const auto *t) { return t == tag; });
+		[&](const QString *t) { return *t == tag; });
 
 	if (isCommonFormatting) {
 		return true;
@@ -152,7 +152,7 @@ SpellingHighlighter::SpellingHighlighter(
 	rpl::producer<bool> enabled,
 	std::optional<CustomContextMenuItem> customContextMenuItem)
 : QSyntaxHighlighter(field->rawTextEdit()->document())
-, _cursor(QTextCursor(document()->docHandle(), 0))
+, _cursor(QTextCursor(document()))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _field(field)
 , _textEdit(field->rawTextEdit())
@@ -430,8 +430,8 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 		return true;
 	}
 	const auto text = documentText();
-	const auto ref = text.midRef(position, length);
-	if (ref.isNull()) {
+	const auto ref = QStringView(text).mid(position, length);
+	if (ref.isEmpty()) {
 		return true;
 	}
 	return IsWordSkippable(ref);
@@ -620,10 +620,11 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 			return false;
 		}
 		// Copy of QContextMenuEvent.
-		auto copyEvent = QContextMenuEvent(
+		auto copyEvent = std::make_shared<QContextMenuEvent>(
 			c->reason(),
 			c->pos(),
-			c->globalPos());
+			c->globalPos(),
+			c->modifiers());
 		auto showMenu = [=, copyEvent = std::move(copyEvent)] {
 			_contextMenuCreated.fire({ menu, copyEvent });
 		};
@@ -721,8 +722,8 @@ int SpellingHighlighter::compareDocumentText(
 	if (_lastPlainText.size() < textPos + textLen) {
 		return -1;
 	}
-	const auto p = _lastPlainText.midRef(textPos, textLen);
-	if (p.isNull()) {
+	const auto p = QStringView(_lastPlainText).mid(textPos, textLen);
+	if (p.isEmpty()) {
 		return -1;
 	}
 	return text.compare(p, Qt::CaseSensitive);

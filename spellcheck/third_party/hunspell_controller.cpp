@@ -197,7 +197,7 @@ HunspellService::~HunspellService() {
 
 // Thread: Main.
 std::vector<QString> &HunspellService::addedWords(const QString &word) {
-	return _addedWords[::Spellchecker::WordScript(&word)];
+	return _addedWords[::Spellchecker::WordScript(word)];
 }
 
 // Thread: Main.
@@ -284,7 +284,7 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 
 // Thread: Any.
 bool HunspellService::checkSpelling(const QString &wordToCheck) {
-	const auto wordScript = ::Spellchecker::WordScript(&wordToCheck);
+	const auto wordScript = ::Spellchecker::WordScript(wordToCheck);
 	if (ranges::contains(_ignoredWords[wordScript], wordToCheck)) {
 		return true;
 	}
@@ -308,7 +308,7 @@ bool HunspellService::checkSpelling(const QString &wordToCheck) {
 void HunspellService::fillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	const auto wordScript = ::Spellchecker::WordScript(&wrongWord);
+	const auto wordScript = ::Spellchecker::WordScript(wrongWord);
 
 	const auto customGuesses = _customDict->suggest(wrongWord.toStdString());
 	*optionalSuggestions = ranges::view::all(
@@ -348,7 +348,7 @@ void HunspellService::fillSuggestionList(
 
 // Thread: Main.
 void HunspellService::ignoreWord(const QString &word) {
-	const auto wordScript = ::Spellchecker::WordScript(&word);
+	const auto wordScript = ::Spellchecker::WordScript(word);
 	_customDict->add(word.toStdString());
 	_ignoredWords[wordScript].push_back(word);
 }
@@ -428,7 +428,7 @@ void HunspellService::readFile() {
 		splitedWords
 	) | ranges::views::filter([](auto &word) {
 		// Ignore words with mixed scripts or non-words characters.
-		return !word.isEmpty() && !IsWordSkippable(&word, false);
+		return !word.isEmpty() && !IsWordSkippable(word, false);
 	}) | ranges::views::take(
 		kMaxSyncableDictionaryWords
 	) | ranges::views::transform([](auto &word) {
@@ -443,7 +443,7 @@ void HunspellService::readFile() {
 	auto groupedWords = ranges::view::all(
 		filteredWords
 	) | ranges::view::group_by([](auto &a, auto &b) {
-		return WordScript(&a) == WordScript(&b);
+		return WordScript(a) == WordScript(b);
 	}) | ranges::view::transform([](auto &&rng) {
 		return rng | ranges::to_vector;
 	}) | ranges::to_vector;
@@ -452,7 +452,7 @@ void HunspellService::readFile() {
 	auto scripts = ranges::view::all(
 		groupedWords
 	) | ranges::view::transform([](auto &vector) {
-		return WordScript(&vector.front());
+		return WordScript(vector.front());
 	}) | ranges::to_vector;
 
 	// {QChar::Script_Latin : {"a"}, QChar::Script_Greek : {"β"}};
@@ -522,7 +522,7 @@ void CheckSpellingText(
 	*misspelledWords = ::Spellchecker::RangesFromText(
 		text,
 		[](const QString &word) {
-			return !::Spellchecker::IsWordSkippable(&word)
+			return !::Spellchecker::IsWordSkippable(word)
 				&& CheckSpelling(word);
 		});
 }
