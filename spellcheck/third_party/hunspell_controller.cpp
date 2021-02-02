@@ -130,10 +130,12 @@ HunspellEngine::HunspellEngine(const QString &lang)
 
 #ifdef Q_OS_WIN
 	_hunspell = std::make_unique<Hunspell>(
-		"\\\\?\\" + affPath,
-		"\\\\?\\" + dicPath);
+		("\\\\?\\" + affPath).constData(),
+		("\\\\?\\" + dicPath).constData());
 #else // Q_OS_WIN
-	_hunspell = std::make_unique<Hunspell>(affPath, dicPath);
+	_hunspell = std::make_unique<Hunspell>(
+		affPath.constData(),
+		dicPath.constData());
 #endif // !Q_OS_WIN
 
 	_codec = QTextCodec::codecForName(_hunspell->get_dic_encoding());
