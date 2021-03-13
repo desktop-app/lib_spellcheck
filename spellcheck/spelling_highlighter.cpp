@@ -183,9 +183,9 @@ SpellingHighlighter::SpellingHighlighter(
 		if (!IsTagUnspellcheckable(markdownTag.tag)) {
 			return;
 		}
-		_cachedRanges = ranges::view::all(
+		_cachedRanges = ranges::views::all(
 			_cachedRanges
-		) | ranges::view::filter([&](const auto &range) {
+		) | ranges::views::filter([&](const auto &range) {
 			return !IntersectsWordRanges(
 				range,
 				markdownTag.internalStart,
@@ -305,7 +305,7 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 
 	_cachedRanges = (
 		_cachedRanges
-	) | ranges::view::filter([&](const auto &range) {
+	) | ranges::views::filter([&](const auto &range) {
 		const auto isIntersected = IntersectsWordRanges(range, wordUnderPos);
 		if (isIntersected) {
 			return isPosNotInWord;
@@ -416,7 +416,7 @@ MisspelledWords SpellingHighlighter::filterSkippableWords(
 	if (text.isEmpty()) {
 		return MisspelledWords();
 	}
-	return ranges | ranges::view::filter([&](const auto &range) {
+	return ranges | ranges::views::filter([&](const auto &range) {
 		return !isSkippableWord(range);
 	}) | ranges::to_vector;
 }
@@ -596,7 +596,7 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	ranges::for_each((
 		_cachedRanges
 	// Skip the all words outside the current block.
-	) | ranges::view::filter([&](const auto &range) {
+	) | ranges::views::filter([&](const auto &range) {
 		return IntersectsWordRanges(range, bPos, bLen);
 	}), [&](const auto &range) {
 		const auto posInBlock = range.first - bPos;

@@ -38,7 +38,7 @@ inline auto SystemLanguages() {
 		const auto uiLanguages = QLocale::system().uiLanguages();
 		languages = (
 			uiLanguages
-		) | ranges::view::transform([&](const auto &lang) {
+		) | ranges::views::transform([&](const auto &lang) {
 			return lang.left(std::max(lang.indexOf('_'), lang.indexOf('-')));
 		}) | ranges::views::unique | ranges::to_vector;
 	}

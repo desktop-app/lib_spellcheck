@@ -247,7 +247,7 @@ bool IsWordSkippable(const QStringRef &word, bool checkSupportedScripts) {
 
 void UpdateSupportedScripts(std::vector<QString> languages) {
 	// It should be called at least once from Platform::Spellchecker::Init().
-	SupportedScripts = ranges::view::all(
+	SupportedScripts = ranges::views::all(
 		languages
 	) | ranges::views::transform(
 		LocaleToScriptCode
