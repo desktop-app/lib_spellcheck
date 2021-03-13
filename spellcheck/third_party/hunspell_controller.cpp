@@ -37,9 +37,9 @@ auto LocaleNameFromLangId(int langId) {
 }
 
 QString CustomDictionaryPath() {
-	return QStringLiteral("%1/%2")
-		.arg(::Spellchecker::WorkingDirPath())
-		.arg("custom");
+	return QStringLiteral("%1/%2").arg(
+		::Spellchecker::WorkingDirPath(),
+		"custom");
 }
 
 class HunspellEngine {
