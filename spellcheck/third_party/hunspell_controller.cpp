@@ -118,7 +118,7 @@ HunspellEngine::HunspellEngine(const QString &lang)
 	if (workingDir.isEmpty()) {
 		return;
 	}
-	const auto rawPath = QString("%1/%2/%2").arg(workingDir).arg(lang);
+	const auto rawPath = QString("%1/%2/%2").arg(workingDir, lang);
 	const auto dictPath = QDir::toNativeSeparators(rawPath).toUtf8();
 
 	const auto affPath = dictPath + ".aff";
