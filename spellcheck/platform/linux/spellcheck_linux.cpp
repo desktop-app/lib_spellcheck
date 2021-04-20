@@ -10,7 +10,7 @@
 #include "spellcheck/platform/linux/linux_enchant.h"
 
 #include "spellcheck/platform/linux/spellcheck_linux.h"
-#include "base/integration.h"
+#include "base/debug_log.h"
 
 namespace Platform::Spellchecker {
 namespace {
@@ -104,8 +104,7 @@ EnchantSpellChecker::EnchantSpellChecker() {
 				break;
 			}
 		} catch (const enchant::Exception &e) {
-			base::Integration::Instance().logMessage(
-				QString("Catch after request_dict: ") + e.what());
+			DEBUG_LOG(("Catch after request_dict: %1").arg(e.what()));
 		}
 	}
 }
@@ -128,8 +127,7 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 		try {
 			return validator->check(w);
 		} catch (const enchant::Exception &e) {
-			base::Integration::Instance().logMessage(
-				QString("Catch after check '") + word + "': " + e.what());
+			DEBUG_LOG(("Catch after check '%1': %2").arg(word, e.what()));
 			return true;
 		}
 	};
