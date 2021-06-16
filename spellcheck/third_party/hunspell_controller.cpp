@@ -8,6 +8,7 @@
 #include "spellcheck/third_party/hunspell_controller.h"
 
 #include "hunspell/hunspell.hxx"
+#include "hunspell/csutil.hxx"
 #include "spellcheck/spellcheck_value.h"
 
 #include <mutex>
@@ -189,12 +190,14 @@ HunspellService::HunspellService()
 , _customDict(std::make_unique<Hunspell>("", ""))
 , _epoch(std::make_shared<std::atomic<int>>(0))
 , _engineMutex(std::make_shared<std::shared_mutex>()) {
+	initialize_utf_tbl(); // Force initialization before multi-threading.
 	readFile();
 }
 
 // Thread: Main.
 HunspellService::~HunspellService() {
 	std::unique_lock lock(*_engineMutex);
+	free_utf_tbl(); // This is not perfectly safe, but should be mostly fine.
 }
 
 // Thread: Main.
