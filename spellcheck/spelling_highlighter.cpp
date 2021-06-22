@@ -80,20 +80,22 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	if (tag.isEmpty()) {
 		return false;
 	}
-	const auto isCommonFormatting = ranges::any_of(
-		kUnspellcheckableTags,
-		[&](const auto *t) { return t == tag; });
+	for (const auto &single : tag.splitRef('|')) {
+		const auto isCommonFormatting = ranges::any_of(
+			kUnspellcheckableTags,
+			[&](const auto *t) { return t == single; });
 
-	if (isCommonFormatting) {
-		return true;
-	}
+		if (isCommonFormatting) {
+			return true;
+		}
 
-	if (Ui::InputField::IsValidMarkdownLink(tag)) {
-		return true;
-	}
+		if (Ui::InputField::IsValidMarkdownLink(single)) {
+			return true;
+		}
 
-	if (TextUtilities::IsMentionLink(tag)) {
-		return true;
+		if (TextUtilities::IsMentionLink(single)) {
+			return true;
+		}
 	}
 	return false;
 }
