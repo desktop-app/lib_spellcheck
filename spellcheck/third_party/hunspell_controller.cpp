@@ -66,25 +66,25 @@ QString CustomDictionaryPath() {
 }
 
 [[nodiscard]] Hunspell LoadUtfInitializer() {
-	const auto affHelperName = u"utf_helper.aff"_q;
-	const auto dicHelperName = u"utf_helper.dic"_q;
 	const auto full = [&](const QString &name) {
 		return ::Spellchecker::WorkingDirPath() + '/' + name;
 	};
-	const auto ensure = [&](const QString &name) {
-		const auto from = ":/misc/hunspell/" + name;
-		const auto path = full(name);
-		if (!QFile::exists(path)) {
-			QDir().mkpath(::Spellchecker::WorkingDirPath());
-			Assert(QFile::exists(from));
-			QFile(from).copy(path);
+	const auto aff = full(u"utf_helper.aff"_q);
+	const auto dic = full(u"utf_helper.dic"_q);
+	if (!QFile::exists(aff)) {
+		QDir().mkpath(::Spellchecker::WorkingDirPath());
+		auto f = QFile(aff);
+		if (f.open(QIODevice::WriteOnly)) {
+			f.write("SET UTF-8" + kLineBreak);
 		}
-	};
-	ensure(affHelperName);
-	ensure(dicHelperName);
-	const auto prepared = PreparePaths(
-		full(affHelperName),
-		full(dicHelperName));
+	}
+	if (!QFile::exists(dic)) {
+		auto f = QFile(dic);
+		if (f.open(QIODevice::WriteOnly)) {
+			f.write("1" + kLineBreak + "Zzz" + kLineBreak);
+		}
+	}
+	const auto prepared = PreparePaths(aff, dic);
 	return Hunspell(prepared.aff.constData(), prepared.dic.constData());
 }
 
