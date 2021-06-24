@@ -8,7 +8,6 @@
 #include "spellcheck/third_party/hunspell_controller.h"
 
 #include "hunspell/hunspell.hxx"
-#include "hunspell/csutil.hxx"
 #include "spellcheck/spellcheck_value.h"
 
 #include <mutex>
@@ -33,6 +32,29 @@ const auto kLineBreak = QByteArrayLiteral("\r\n");
 const auto kLineBreak = QByteArrayLiteral("\n");
 #endif // Q_OS_WIN
 
+struct PathPair {
+	QByteArray aff;
+	QByteArray dic;
+};
+
+[[nodiscard]] PathPair PreparePaths(const QString &aff, const QString &dic) {
+	const auto convert = [&](const QString &path) {
+		const auto result = QDir::toNativeSeparators(path).toUtf8();
+#ifdef Q_OS_WIN
+		return "\\\\?\\" + result;
+#else // Q_OS_WIN
+		return result;
+#endif // !Q_OS_WIN
+	};
+	const auto affPath = convert(aff);
+	const auto dicPath = convert(dic);
+
+	return {
+		.aff = convert(aff),
+		.dic = convert(dic),
+	};
+}
+
 auto LocaleNameFromLangId(int langId) {
 	return ::Spellchecker::LocaleFromLangId(langId).name();
 }
@@ -41,6 +63,29 @@ QString CustomDictionaryPath() {
 	return QStringLiteral("%1/%2").arg(
 		::Spellchecker::WorkingDirPath(),
 		"custom");
+}
+
+[[nodiscard]] Hunspell LoadUtfInitializer() {
+	const auto affHelperName = u"utf_helper.aff"_q;
+	const auto dicHelperName = u"utf_helper.dic"_q;
+	const auto full = [&](const QString &name) {
+		return ::Spellchecker::WorkingDirPath() + '/' + name;
+	};
+	const auto ensure = [&](const QString &name) {
+		const auto from = ":/misc/hunspell/" + name;
+		const auto path = full(name);
+		if (!QFile::exists(path)) {
+			QDir().mkpath(::Spellchecker::WorkingDirPath());
+			Assert(QFile::exists(from));
+			QFile(from).copy(path);
+		}
+	};
+	ensure(affHelperName);
+	ensure(dicHelperName);
+	const auto prepared = PreparePaths(
+		full(affHelperName),
+		full(dicHelperName));
+	return Hunspell(prepared.aff.constData(), prepared.dic.constData());
 }
 
 class HunspellEngine {
@@ -69,7 +114,6 @@ private:
 	QTextCodec *_codec;
 
 };
-
 
 class HunspellService {
 public:
@@ -120,24 +164,16 @@ HunspellEngine::HunspellEngine(const QString &lang)
 		return;
 	}
 	const auto rawPath = QString("%1/%2/%2").arg(workingDir, lang);
-	const auto dictPath = QDir::toNativeSeparators(rawPath).toUtf8();
-
-	const auto affPath = dictPath + ".aff";
-	const auto dicPath = dictPath + ".dic";
+	const auto affPath = rawPath + ".aff";
+	const auto dicPath = rawPath + ".dic";
 
 	if (!QFileInfo(affPath).isFile() || !QFileInfo(dicPath).isFile()) {
 		return;
 	}
-
-#ifdef Q_OS_WIN
+	const auto prepared = PreparePaths(affPath, dicPath);
 	_hunspell = std::make_unique<Hunspell>(
-		("\\\\?\\" + affPath).constData(),
-		("\\\\?\\" + dicPath).constData());
-#else // Q_OS_WIN
-	_hunspell = std::make_unique<Hunspell>(
-		affPath.constData(),
-		dicPath.constData());
-#endif // !Q_OS_WIN
+		prepared.aff.constData(),
+		prepared.dic.constData());
 
 	_codec = QTextCodec::codecForName(_hunspell->get_dic_encoding());
 	if (!_codec) {
@@ -190,14 +226,16 @@ HunspellService::HunspellService()
 , _customDict(std::make_unique<Hunspell>("", ""))
 , _epoch(std::make_shared<std::atomic<int>>(0))
 , _engineMutex(std::make_shared<std::shared_mutex>()) {
-	initialize_utf_tbl(); // Force initialization before multi-threading.
+
+	// This is not perfectly safe, but should be mostly fine.
+	static const auto UtfInitializer = LoadUtfInitializer();
+
 	readFile();
 }
 
 // Thread: Main.
 HunspellService::~HunspellService() {
 	std::unique_lock lock(*_engineMutex);
-	free_utf_tbl(); // This is not perfectly safe, but should be mostly fine.
 }
 
 // Thread: Main.
