@@ -358,11 +358,15 @@ void UpdateLanguages(std::vector<int> languages) {
 }
 
 void CheckSpellingText(
-	const QString &text,
-	MisspelledWords *misspelledWords) {
+		const QString &text,
+		MisspelledWords *misspelledWords) {
 	if (IsSystemSpellchecker()) {
+		// There are certain strings with a lot of 'paragraph separators'
+		// that crash the native Windows spellchecker. We replace them
+		// with spaces (no difference for the checking), they don't crash.
+		const auto check = QString(text).replace(QChar(8233), QChar(32));
 		SharedSpellChecker().checkSpellingText(
-			Q2WString(text),
+			Q2WString(check),
 			misspelledWords);
 		return;
 	}
