@@ -5,6 +5,8 @@
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
 #include "spellcheck/platform/win/spellcheck_win.h"
+
+#include "base/platform/base_platform_info.h"
 #include "spellcheck/third_party/hunspell_controller.h"
 
 #include <wrl/client.h>
@@ -14,8 +16,6 @@
 #include <QtCore/QLocale>
 #include <QVector>
 
-#include "base/platform/base_platform_info.h"
-
 using namespace Microsoft::WRL;
 
 namespace Platform::Spellchecker {
@@ -23,18 +23,18 @@ namespace Platform::Spellchecker {
 namespace {
 
 // Seems like ISpellChecker API has bugs for Persian language (aka Farsi).
-inline bool IsPersianLanguage(const QString &langTag) {
+[[nodiscard]] inline bool IsPersianLanguage(const QString &langTag) {
 	return langTag.startsWith(QStringLiteral("fa"));
 }
 
-inline LPCWSTR Q2WString(QStringView string) {
+[[nodiscard]] inline LPCWSTR Q2WString(QStringView string) {
 	return (LPCWSTR)string.utf16();
 }
 
-inline auto SystemLanguages() {
+[[nodiscard]] inline auto SystemLanguages() {
 	const auto appdata = qEnvironmentVariable("appdata");
 	const auto dir = QDir(appdata + QString("\\Microsoft\\Spelling"));
-	QStringList list(SystemLanguage());
+	auto list = QStringList(SystemLanguage());
 	list << (dir.exists()
 		? dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)
 		: QLocale::system().uiLanguages());
@@ -53,18 +53,18 @@ public:
 	void addWord(LPCWSTR word);
 	void removeWord(LPCWSTR word);
 	void ignoreWord(LPCWSTR word);
-	bool checkSpelling(LPCWSTR word);
+	[[nodiscard]] bool checkSpelling(LPCWSTR word);
 	void fillSuggestionList(
 		LPCWSTR wrongWord,
 		std::vector<QString> *optionalSuggestions);
 	void checkSpellingText(
 		LPCWSTR text,
 		MisspelledWords *misspelledWordRanges);
-	std::vector<QString> systemLanguages();
+	[[nodiscard]] std::vector<QString> systemLanguages();
 
 private:
 	void createFactory();
-	bool isLanguageSupported(const LPCWSTR& lang);
+	[[nodiscard]] bool isLanguageSupported(const LPCWSTR &lang);
 	void createSpellCheckers();
 
 	ComPtr<ISpellCheckerFactory> _spellcheckerFactory;
@@ -78,7 +78,9 @@ WindowsSpellChecker::WindowsSpellChecker() {
 }
 
 void WindowsSpellChecker::createFactory() {
-	if (FAILED(CoCreateInstance(__uuidof(SpellCheckerFactory), nullptr,
+	if (FAILED(CoCreateInstance(
+		__uuidof(SpellCheckerFactory),
+		nullptr,
 		(CLSCTX_INPROC_SERVER | CLSCTX_LOCAL_SERVER),
 		IID_PPV_ARGS(&_spellcheckerFactory)))) {
 		_spellcheckerFactory = nullptr;
@@ -97,8 +99,8 @@ void WindowsSpellChecker::createSpellCheckers() {
 		if (ranges::contains(ranges::views::keys(_spellcheckerMap), lang)) {
 			continue;
 		}
-		ComPtr<ISpellChecker> spellchecker;
-		HRESULT hr = _spellcheckerFactory->CreateSpellChecker(
+		auto spellchecker = ComPtr<ISpellChecker>();
+		auto hr = _spellcheckerFactory->CreateSpellChecker(
 			wlang,
 			&spellchecker);
 		if (SUCCEEDED(hr)) {
@@ -107,38 +109,39 @@ void WindowsSpellChecker::createSpellCheckers() {
 	}
 }
 
-bool WindowsSpellChecker::isLanguageSupported(const LPCWSTR& lang) {
+bool WindowsSpellChecker::isLanguageSupported(const LPCWSTR &lang) {
 	if (!_spellcheckerFactory) {
 		return false;
 	}
 
-	BOOL isSupported = (BOOL)false;
-	HRESULT hr = _spellcheckerFactory->IsSupported(lang, &isSupported);
+	auto isSupported = (BOOL)false;
+	auto hr = _spellcheckerFactory->IsSupported(lang, &isSupported);
 	return SUCCEEDED(hr) && isSupported;
 }
 
 void WindowsSpellChecker::fillSuggestionList(
-	LPCWSTR wrongWord,
-	std::vector<QString> *optionalSuggestions) {
+		LPCWSTR wrongWord,
+		std::vector<QString> *optionalSuggestions) {
 	auto i = 0;
 	for (const auto &[langTag, spellchecker] : _spellcheckerMap) {
 		if (IsPersianLanguage(langTag)) {
 			continue;
 		}
-		ComPtr<IEnumString> suggestions;
-		HRESULT hr = spellchecker->Suggest(wrongWord, &suggestions);
+		auto suggestions = ComPtr<IEnumString>();
+		auto hr = spellchecker->Suggest(wrongWord, &suggestions);
 		if (hr != S_OK) {
 			continue;
 		}
 
 		while (true) {
-			wchar_t* suggestion = nullptr;
+			wchar_t *suggestion = nullptr;
 			hr = suggestions->Next(1, &suggestion, nullptr);
 			if (hr != S_OK) {
 				break;
 			}
-			const auto guess =
-				QString::fromWCharArray(suggestion, wcslen(suggestion));
+			const auto guess = QString::fromWCharArray(
+				suggestion,
+				wcslen(suggestion));
 			CoTaskMemFree(suggestion);
 			if (!guess.isEmpty()) {
 				optionalSuggestions->push_back(guess);
@@ -152,14 +155,14 @@ void WindowsSpellChecker::fillSuggestionList(
 
 bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
 	for (const auto &[_, spellchecker] : _spellcheckerMap) {
-		ComPtr<IEnumSpellingError> spellingErrors;
-		HRESULT hr = spellchecker->Check(word, &spellingErrors);
+		auto spellingErrors = ComPtr<IEnumSpellingError>();
+		auto hr = spellchecker->Check(word, &spellingErrors);
 
 		if (SUCCEEDED(hr) && spellingErrors) {
-			ComPtr<ISpellingError> spellingError;
-			ULONG startIndex = 0;
-			ULONG errorLength = 0;
-			CORRECTIVE_ACTION action = CORRECTIVE_ACTION_NONE;
+			auto spellingError = ComPtr<ISpellingError>();
+			auto startIndex = ULONG(0);
+			auto errorLength = ULONG(0);
+			auto action = CORRECTIVE_ACTION_NONE;
 			hr = spellingErrors->Next(&spellingError);
 			if (SUCCEEDED(hr) &&
 				spellingError &&
@@ -167,7 +170,7 @@ bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
 				SUCCEEDED(spellingError->get_Length(&errorLength)) &&
 				SUCCEEDED(spellingError->get_CorrectiveAction(&action)) &&
 				(action == CORRECTIVE_ACTION_GET_SUGGESTIONS ||
-				 action == CORRECTIVE_ACTION_REPLACE)) {
+					action == CORRECTIVE_ACTION_REPLACE)) {
 			} else {
 				return true;
 			}
@@ -177,13 +180,12 @@ bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
 }
 
 void WindowsSpellChecker::checkSpellingText(
-	LPCWSTR text,
-	MisspelledWords *misspelledWordRanges) {
-
+		LPCWSTR text,
+		MisspelledWords *misspelledWordRanges) {
 	// The spellchecker marks words not from its own language as misspelled.
 	// So we only return words that are marked
 	// as misspelled in all spellcheckers.
-	MisspelledWords misspelledWords;
+	auto misspelledWords = MisspelledWords();
 
 	constexpr auto isActionGood = [](auto action) {
 		return action == CORRECTIVE_ACTION_GET_SUGGESTIONS
@@ -191,21 +193,21 @@ void WindowsSpellChecker::checkSpellingText(
 	};
 
 	for (const auto &[langTag, spellchecker] : _spellcheckerMap) {
-		ComPtr<IEnumSpellingError> spellingErrors;
+		auto spellingErrors = ComPtr<IEnumSpellingError>();
 
-		HRESULT hr = IsPersianLanguage(langTag)
+		auto hr = IsPersianLanguage(langTag)
 			? spellchecker->Check(text, &spellingErrors)
 			: spellchecker->ComprehensiveCheck(text, &spellingErrors);
 		if (!(SUCCEEDED(hr) && spellingErrors)) {
 			continue;
 		}
 
-		MisspelledWords tempMisspelled;
-		ComPtr<ISpellingError> spellingError;
+		auto tempMisspelled = MisspelledWords();
+		auto spellingError = ComPtr<ISpellingError>();
 		for (; hr == S_OK; hr = spellingErrors->Next(&spellingError)) {
-			ULONG startIndex = 0;
-			ULONG errorLength = 0;
-			CORRECTIVE_ACTION action = CORRECTIVE_ACTION_NONE;
+			auto startIndex = ULONG(0);
+			auto errorLength = ULONG(0);
+			auto action = CORRECTIVE_ACTION_NONE;
 
 			if (!(SUCCEEDED(hr)
 				&& spellingError
@@ -215,7 +217,7 @@ void WindowsSpellChecker::checkSpellingText(
 				&& isActionGood(action))) {
 				continue;
 			}
-			const auto word = std::pair((int) startIndex, (int) errorLength);
+			const auto word = std::pair((int)startIndex, (int)errorLength);
 			if (misspelledWords.empty()
 				|| ranges::contains(misspelledWords, word)) {
 				tempMisspelled.push_back(std::move(word));
@@ -240,7 +242,7 @@ void WindowsSpellChecker::addWord(LPCWSTR word) {
 
 void WindowsSpellChecker::removeWord(LPCWSTR word) {
 	for (const auto &[_, spellchecker] : _spellcheckerMap) {
-		ComPtr<ISpellChecker2> spellchecker2;
+		auto spellchecker2 = ComPtr<ISpellChecker2>();
 		spellchecker->QueryInterface(IID_PPV_ARGS(&spellchecker2));
 		if (spellchecker2) {
 			spellchecker2->Remove(word);
@@ -299,8 +301,8 @@ bool CheckSpelling(const QString &wordToCheck) {
 }
 
 void FillSuggestionList(
-	const QString &wrongWord,
-	std::vector<QString> *optionalSuggestions) {
+		const QString &wrongWord,
+		std::vector<QString> *optionalSuggestions) {
 	if (IsSystemSpellchecker()) {
 		SharedSpellChecker().fillSuggestionList(
 			Q2WString(wrongWord),
