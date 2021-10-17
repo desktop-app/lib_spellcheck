@@ -12,6 +12,8 @@
 
 namespace Spellchecker {
 
+constexpr auto kMaxWordSize = 99;
+
 QChar::Script LocaleToScriptCode(const QString &locale);
 QChar::Script WordScript(const QStringRef &word);
 bool IsWordSkippable(

@@ -22,6 +22,8 @@ namespace Platform::Spellchecker {
 
 namespace {
 
+constexpr auto kChunk = 5000;
+
 // Seems like ISpellChecker API has bugs for Persian language (aka Farsi).
 [[nodiscard]] inline bool IsPersianLanguage(const QString &langTag) {
 	return langTag.startsWith(QStringLiteral("fa"));
@@ -59,8 +61,12 @@ public:
 		std::vector<QString> *optionalSuggestions);
 	void checkSpellingText(
 		LPCWSTR text,
-		MisspelledWords *misspelledWordRanges);
+		MisspelledWords *misspelledWordRanges,
+		int offset);
 	[[nodiscard]] std::vector<QString> systemLanguages();
+	void chunkedCheckSpellingText(
+		QStringView textView,
+		MisspelledWords *misspelledWords);
 
 private:
 	void createFactory();
@@ -181,7 +187,8 @@ bool WindowsSpellChecker::checkSpelling(LPCWSTR word) {
 
 void WindowsSpellChecker::checkSpellingText(
 		LPCWSTR text,
-		MisspelledWords *misspelledWordRanges) {
+		MisspelledWords *misspelledWordRanges,
+		int offset) {
 	// The spellchecker marks words not from its own language as misspelled.
 	// So we only return words that are marked
 	// as misspelled in all spellcheckers.
@@ -217,7 +224,9 @@ void WindowsSpellChecker::checkSpellingText(
 				&& isActionGood(action))) {
 				continue;
 			}
-			const auto word = std::pair((int)startIndex, (int)errorLength);
+			const auto word = std::pair(
+				(int)startIndex + offset,
+				(int)errorLength);
 			if (misspelledWords.empty()
 				|| ranges::contains(misspelledWords, word)) {
 				tempMisspelled.push_back(std::move(word));
@@ -231,7 +240,13 @@ void WindowsSpellChecker::checkSpellingText(
 		}
 		misspelledWords = std::move(tempMisspelled);
 	}
-	*misspelledWordRanges = misspelledWords;
+	if (offset) {
+		for (auto &m : misspelledWords) {
+			misspelledWordRanges->push_back(std::move(m));
+		}
+	} else {
+		*misspelledWordRanges = misspelledWords;
+	}
 }
 
 void WindowsSpellChecker::addWord(LPCWSTR word) {
@@ -258,6 +273,43 @@ void WindowsSpellChecker::ignoreWord(LPCWSTR word) {
 
 std::vector<QString> WindowsSpellChecker::systemLanguages() {
 	return ranges::views::keys(_spellcheckerMap) | ranges::to_vector;
+}
+
+void WindowsSpellChecker::chunkedCheckSpellingText(
+		QStringView textView,
+		MisspelledWords *misspelledWords) {
+	auto i = 0;
+	auto chunkBuffer = std::vector<wchar_t>();
+
+	while (i != textView.size()) {
+		const auto provisionalChunkSize = std::min(
+			kChunk,
+			textView.size() - i);
+		const auto chunkSize = [&] {
+			const auto until = std::max(
+				0,
+				provisionalChunkSize - ::Spellchecker::kMaxWordSize);
+			for (auto n = provisionalChunkSize; n > until; n--) {
+				if (textView.at(i + n - 1).isLetterOrNumber()) {
+					continue;
+				} else {
+					return n;
+				}
+			}
+			return provisionalChunkSize;
+		}();
+		const auto chunk = textView.mid(i, chunkSize);
+
+		chunkBuffer.resize(chunk.size() + 1);
+		const auto count = chunk.toWCharArray(chunkBuffer.data());
+		chunkBuffer[count] = '\0';
+
+		checkSpellingText(
+			(LPCWSTR)chunkBuffer.data(),
+			misspelledWords,
+			i);
+		i += chunk.size();
+	}
 }
 
 ////// End of WindowsSpellChecker class.
@@ -367,9 +419,21 @@ void CheckSpellingText(
 		// that crash the native Windows spellchecker. We replace them
 		// with spaces (no difference for the checking), they don't crash.
 		const auto check = QString(text).replace(QChar(8233), QChar(32));
-		SharedSpellChecker().checkSpellingText(
-			Q2WString(check),
-			misspelledWords);
+		if (check.size() > kChunk) {
+			// On some versions of Windows 10,
+			// checking large text with specific characters (e.g. @)
+			// will throw the std::regex_error::error_complexity exception,
+			// so we have to split the text.
+			SharedSpellChecker().chunkedCheckSpellingText(
+				check,
+				misspelledWords);
+		} else {
+			SharedSpellChecker().checkSpellingText(
+				(LPCWSTR)check.utf16(),
+				misspelledWords,
+				0);
+		}
+
 		return;
 	}
 	ThirdParty::CheckSpellingText(text, misspelledWords);

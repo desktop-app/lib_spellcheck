@@ -25,8 +25,6 @@ rpl::event_stream<> SupportedScriptsEventStream;
 
 constexpr auto kFactor = 1000;
 
-constexpr auto kMaxWordSize = 99;
-
 constexpr auto kAcuteAccentChars = {
 	QChar(769),	QChar(833),	// QChar(180),
 	QChar(714),	QChar(779),	QChar(733),
