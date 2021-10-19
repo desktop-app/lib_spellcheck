@@ -6,7 +6,6 @@
 //
 
 #include <QtCore/QString>
-#include <QtCore/QStringRef>
 
 #include <range/v3/all.hpp>
 

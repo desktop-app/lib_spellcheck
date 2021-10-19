@@ -8,10 +8,10 @@
 #include "spellcheck/spelling_highlighter.h"
 
 #include "ui/platform/ui_platform_utility.h"
-#include "base/qt_adapters.h"
 #include "styles/style_widgets.h"
 #include "styles/palette.h"
 
+#include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
 
 namespace Spelling::Helper {
@@ -46,7 +46,7 @@ bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 	itemsCount += additional;
 
 	const auto w = mousePosition - QPoint(0, p.top());
-	const auto screen = base::QScreenNearestTo(mousePosition);
+	const auto screen = QGuiApplication::screenAt(mousePosition);
 	if (!screen) {
 		return false;
 	}

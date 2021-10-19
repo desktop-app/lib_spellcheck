@@ -13,9 +13,9 @@
 namespace Spellchecker {
 
 QChar::Script LocaleToScriptCode(const QString &locale);
-QChar::Script WordScript(const QStringRef &word);
+QChar::Script WordScript(QStringView word);
 bool IsWordSkippable(
-	const QStringRef &word,
+	QStringView word,
 	bool checkSupportedScripts = true);
 
 MisspelledWords RangesFromText(

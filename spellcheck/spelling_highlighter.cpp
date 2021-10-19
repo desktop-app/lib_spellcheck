@@ -14,6 +14,7 @@
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
 #include "ui/ui_utility.h"
+#include "base/qt_adapters.h"
 
 namespace Spellchecker {
 
@@ -80,10 +81,10 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	if (tag.isEmpty()) {
 		return false;
 	}
-	for (const auto &single : tag.splitRef('|')) {
+	for (const auto &single : QStringView(tag).split('|')) {
 		const auto isCommonFormatting = ranges::any_of(
 			kUnspellcheckableTags,
-			[&](const auto *t) { return t == single; });
+			[&](const auto *t) { return (*t) == single; });
 
 		if (isCommonFormatting) {
 			return true;
@@ -154,7 +155,7 @@ SpellingHighlighter::SpellingHighlighter(
 	rpl::producer<bool> enabled,
 	std::optional<CustomContextMenuItem> customContextMenuItem)
 : QSyntaxHighlighter(field->rawTextEdit()->document())
-, _cursor(QTextCursor(document()->docHandle(), 0))
+, _cursor(QTextCursor(document()))
 , _coldSpellcheckingTimer([=] { checkChangedText(); })
 , _field(field)
 , _textEdit(field->rawTextEdit())
@@ -432,7 +433,7 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 		return true;
 	}
 	const auto text = documentText();
-	const auto ref = text.midRef(position, length);
+	const auto ref = base::StringViewMid(text, position, length);
 	if (ref.isNull()) {
 		return true;
 	}
@@ -622,7 +623,7 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 			return false;
 		}
 		// Copy of QContextMenuEvent.
-		auto copyEvent = QContextMenuEvent(
+		auto copyEvent = std::make_shared<QContextMenuEvent>(
 			c->reason(),
 			c->pos(),
 			c->globalPos());
@@ -723,7 +724,7 @@ int SpellingHighlighter::compareDocumentText(
 	if (_lastPlainText.size() < textPos + textLen) {
 		return -1;
 	}
-	const auto p = _lastPlainText.midRef(textPos, textLen);
+	const auto p = base::StringViewMid(_lastPlainText, textPos, textLen);
 	if (p.isNull()) {
 		return -1;
 	}
