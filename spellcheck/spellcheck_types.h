@@ -8,7 +8,3 @@
 
 using MisspelledWord = std::pair<int, int>;
 using MisspelledWords = std::vector<MisspelledWord>;
-
-#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
-using QStringView = const QString&;
-#endif
