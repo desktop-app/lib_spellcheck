@@ -15,7 +15,8 @@
 
 #include <QDir>
 #include <QFileInfo>
-#include <QTextCodec>
+#include <QStringEncoder>
+#include <QStringDecoder>
 
 namespace Platform::Spellchecker::ThirdParty {
 namespace {
@@ -95,7 +96,7 @@ public:
 
 	bool isValid() const;
 
-	bool spell(const QString &word) const;
+	bool spell(const QString &word);
 
 	void suggest(
 		const QString &wrongWord,
@@ -111,7 +112,8 @@ private:
 	QString _lang;
 	QChar::Script _script;
 	std::unique_ptr<Hunspell> _hunspell;
-	QTextCodec *_codec;
+	QStringEncoder _encoder;
+	QStringDecoder _decoder;
 
 };
 
@@ -157,8 +159,7 @@ private:
 HunspellEngine::HunspellEngine(const QString &lang)
 : _lang(lang)
 , _script(::Spellchecker::LocaleToScriptCode(lang))
-, _hunspell(nullptr)
-, _codec(nullptr) {
+, _hunspell(nullptr) {
 	const auto workingDir = ::Spellchecker::WorkingDirPath();
 	if (workingDir.isEmpty()) {
 		return;
@@ -175,8 +176,10 @@ HunspellEngine::HunspellEngine(const QString &lang)
 		prepared.aff.constData(),
 		prepared.dic.constData());
 
-	_codec = QTextCodec::codecForName(_hunspell->get_dic_encoding());
-	if (!_codec) {
+	const auto encoding = _hunspell->get_dic_encoding();
+	_encoder = QStringEncoder(encoding);
+	_decoder = QStringDecoder(encoding);
+	if (!_encoder.isValid() || !_decoder.isValid()) {
 		_hunspell.reset();
 	}
 }
@@ -185,22 +188,22 @@ bool HunspellEngine::isValid() const {
 	return _hunspell != nullptr;
 }
 
-bool HunspellEngine::spell(const QString &word) const {
-	return _hunspell->spell(_codec->fromUnicode(word).toStdString());
+bool HunspellEngine::spell(const QString &word) {
+	return _hunspell->spell(QByteArray(_encoder(word)).toStdString());
 }
 
 void HunspellEngine::suggest(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	const auto stdWord = _codec->fromUnicode(wrongWord).toStdString();
+	const auto stdWord = QByteArray(_encoder(wrongWord)).toStdString();
 
 	for (const auto &guess : _hunspell->suggest(stdWord)) {
 		if (optionalSuggestions->size()	== kMaxSuggestions) {
 			return;
 		}
-		const auto qguess = _codec->toUnicode(
+		const auto qguess = QString(_decoder(QByteArray(
 			guess.data(),
-			guess.length());
+			guess.length())));
 		if (ranges::contains(*optionalSuggestions, qguess)) {
 			continue;
 		}
