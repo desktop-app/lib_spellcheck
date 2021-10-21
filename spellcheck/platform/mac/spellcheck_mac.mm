@@ -128,7 +128,7 @@ void FillSuggestionList(
 	};
 
 	auto wordCounter = 0;
-	const auto wordScript = ::Spellchecker::WordScript(&wrongWord);
+	const auto wordScript = ::Spellchecker::WordScript(wrongWord);
 	optionalSuggestions->reserve(kMaxSuggestions);
 
 	// for (NSString *lang in [SharedSpellChecker() availableLanguages]) {
