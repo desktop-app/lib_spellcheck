@@ -284,7 +284,7 @@ void WindowsSpellChecker::chunkedCheckSpellingText(
 	while (i != textView.size()) {
 		const auto provisionalChunkSize = std::min(
 			kChunk,
-			textView.size() - i);
+			int(textView.size() - i));
 		const auto chunkSize = [&] {
 			const auto until = std::max(
 				0,
