@@ -81,7 +81,7 @@ inline bool IsTagUnspellcheckable(const QString &tag) {
 	if (tag.isEmpty()) {
 		return false;
 	}
-	for (const auto &single : QStringView(tag).split('|')) {
+	for (const auto &single : TextUtilities::SplitTags(tag)) {
 		const auto isCommonFormatting = ranges::any_of(
 			kUnspellcheckableTags,
 			[&](const auto *t) { return (*t) == single; });
