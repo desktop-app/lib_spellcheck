@@ -88,5 +88,4 @@ if (LINUX AND use_enchant)
 
     pkg_search_module(ENCHANT REQUIRED enchant-2 enchant)
     target_include_directories(lib_spellcheck SYSTEM PRIVATE ${ENCHANT_INCLUDE_DIRS})
-    target_link_libraries(lib_spellcheck PRIVATE ${CMAKE_DL_LIBS})
 endif()
