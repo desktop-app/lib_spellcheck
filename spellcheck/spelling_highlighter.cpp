@@ -14,7 +14,7 @@
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
 #include "ui/ui_utility.h"
-#include "base/qt_adapters.h"
+#include "base/qt/qt_common_adapters.h"
 
 namespace Spellchecker {
 
