@@ -7,7 +7,6 @@
 
 #include "spellcheck/third_party/hunspell_controller.h"
 
-#include "hunspell/hunspell.hxx"
 #include "spellcheck/spellcheck_value.h"
 
 #include <mutex>
@@ -16,6 +15,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QTextCodec>
+
+#include <hunspell/hunspell.hxx>
 
 namespace Platform::Spellchecker::ThirdParty {
 namespace {
