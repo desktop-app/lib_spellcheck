@@ -29,12 +29,12 @@ bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 	const auto itemHeight = st.itemPadding.top()
 		+ st.itemStyle.font->height
 		+ st.itemPadding.bottom();
-	const auto sepHeight = st.separatorPadding.top()
-		+ st.separatorWidth
-		+ st.separatorPadding.bottom();
+	const auto sepHeight = st.separator.padding.top()
+		+ st.separator.width
+		+ st.separator.padding.bottom();
 
 	const auto line = st::lineWidth;
-	const auto p = Ui::Platform::TranslucentWindowsSupported(mousePosition)
+	const auto p = Ui::Platform::TranslucentWindowsSupported()
 		? stPopup.shadow.extend
 		: style::margins(line, line, line, line);
 
