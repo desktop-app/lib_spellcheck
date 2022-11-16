@@ -6,9 +6,37 @@
 //
 #include "spellcheck/platform/mac/language_mac.h"
 
+#include "base/platform/mac/base_utilities_mac.h"
+
+#import <NaturalLanguage/NLLanguageRecognizer.h>
+
+using Platform::Q2NSString;
+using Platform::NS2QString;
+
 namespace Platform::Language {
 
 RecognitionResult Recognize(QStringView text) {
+	if (@available(macOS 10.14, *)) {
+		constexpr auto kMaxHypotheses = 3;
+		static auto r = [[NLLanguageRecognizer alloc] init];
+		[r processString:Q2NSString(text)];
+		const auto hypotheses =
+			[r languageHypothesesWithMaximum:kMaxHypotheses];
+		[r reset];
+		auto maxProbability = 0.;
+		auto language = NLLanguage(nil);
+		for (NLLanguage lang in hypotheses) {
+			const auto probability = [hypotheses[lang] floatValue];
+			if (probability > maxProbability) {
+				maxProbability = probability;
+				language = lang;
+			}
+		}
+		if (language) {
+			return { QLocale(NS2QString(language)) };
+		}
+	}
+
 	return { .unknown = true };
 }
 
