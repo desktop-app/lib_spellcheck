@@ -40,12 +40,18 @@ PRIVATE
 if (system_spellchecker)
     nice_target_sources(lib_spellcheck ${src_loc}
     PRIVATE
+        spellcheck/platform/linux/language_linux.cpp
+        spellcheck/platform/linux/language_linux.h
         spellcheck/platform/linux/linux_enchant.cpp
         spellcheck/platform/linux/linux_enchant.h
         spellcheck/platform/linux/spellcheck_linux.cpp
         spellcheck/platform/linux/spellcheck_linux.h
+        spellcheck/platform/mac/language_mac.h
+        spellcheck/platform/mac/language_mac.mm
         spellcheck/platform/mac/spellcheck_mac.h
         spellcheck/platform/mac/spellcheck_mac.mm
+        spellcheck/platform/win/language_win.cpp
+        spellcheck/platform/win/language_win.h
         spellcheck/platform/win/spellcheck_win.cpp
         spellcheck/platform/win/spellcheck_win.h
     )
