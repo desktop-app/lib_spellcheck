@@ -20,6 +20,11 @@ if ((APPLE OR WIN32 OR use_enchant) AND NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
     set(system_spellchecker 1)
 endif()
 
+set(use_cld3 0)
+if (LINUX OR DESKTOP_APP_USE_CLD3)
+    set(use_cld3 1)
+endif()
+
 target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
 nice_target_sources(lib_spellcheck ${src_loc}
 PRIVATE
@@ -40,18 +45,12 @@ PRIVATE
 if (system_spellchecker)
     nice_target_sources(lib_spellcheck ${src_loc}
     PRIVATE
-        spellcheck/platform/linux/language_linux.cpp
-        spellcheck/platform/linux/language_linux.h
         spellcheck/platform/linux/linux_enchant.cpp
         spellcheck/platform/linux/linux_enchant.h
         spellcheck/platform/linux/spellcheck_linux.cpp
         spellcheck/platform/linux/spellcheck_linux.h
-        spellcheck/platform/mac/language_mac.h
-        spellcheck/platform/mac/language_mac.mm
         spellcheck/platform/mac/spellcheck_mac.h
         spellcheck/platform/mac/spellcheck_mac.mm
-        spellcheck/platform/win/language_win.cpp
-        spellcheck/platform/win/language_win.h
         spellcheck/platform/win/spellcheck_win.cpp
         spellcheck/platform/win/spellcheck_win.h
     )
@@ -63,6 +62,24 @@ else()
     )
 endif()
 
+if (use_cld3)
+    nice_target_sources(lib_spellcheck ${src_loc}
+    PRIVATE
+        spellcheck/third_party/language_cld3.cpp
+        spellcheck/third_party/language_cld3.h
+    )
+else()
+    nice_target_sources(lib_spellcheck ${src_loc}
+    PRIVATE
+        spellcheck/platform/linux/language_linux.cpp
+        spellcheck/platform/linux/language_linux.h
+        spellcheck/platform/mac/language_mac.h
+        spellcheck/platform/mac/language_mac.mm
+        spellcheck/platform/win/language_win.cpp
+        spellcheck/platform/win/language_win.h
+    )
+endif()
+
 # We should support both types of spellchecker for Windows.
 if (NOT system_spellchecker OR WIN32)
     nice_target_sources(lib_spellcheck ${src_loc}
@@ -71,6 +88,10 @@ if (NOT system_spellchecker OR WIN32)
         spellcheck/third_party/hunspell_controller.h
     )
     target_link_libraries(lib_spellcheck PRIVATE desktop-app::external_hunspell)
+endif()
+
+if (use_cld3)
+    target_link_libraries(lib_spellcheck PRIVATE desktop-app::external_cld3)
 endif()
 
 target_include_directories(lib_spellcheck
