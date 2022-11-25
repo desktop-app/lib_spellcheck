@@ -21,13 +21,8 @@ if ((APPLE OR WIN32 OR use_enchant) AND NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
 endif()
 
 set(use_cld3 0)
-if (DESKTOP_APP_LANGUAGE_RECOGNITION_BACKEND STREQUAL CLD3)
+if (LINUX OR DESKTOP_APP_USE_CLD3)
     set(use_cld3 1)
-endif()
-
-set(use_sonnet 0)
-if (DESKTOP_APP_LANGUAGE_RECOGNITION_BACKEND STREQUAL SONNET)
-    set(use_sonnet 1)
 endif()
 
 target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
@@ -73,12 +68,6 @@ if (use_cld3)
         spellcheck/third_party/language_cld3.cpp
         spellcheck/third_party/language_cld3.h
     )
-elseif (use_sonnet)
-    nice_target_sources(lib_spellcheck ${src_loc}
-    PRIVATE
-        spellcheck/third_party/language_sonnet.cpp
-        spellcheck/third_party/language_sonnet.h
-    )
 else()
     nice_target_sources(lib_spellcheck ${src_loc}
     PRIVATE
@@ -103,8 +92,6 @@ endif()
 
 if (use_cld3)
     target_link_libraries(lib_spellcheck PRIVATE desktop-app::external_cld3)
-elseif (use_sonnet)
-    target_link_libraries(lib_spellcheck PRIVATE desktop-app::external_sonnet)
 endif()
 
 target_include_directories(lib_spellcheck
