@@ -17,8 +17,8 @@
 namespace Spelling::Helper {
 namespace {
 
-const auto kFormattingItem = 1;
-const auto kSpellingItem = 1;
+constexpr auto kFormattingItem = 1;
+constexpr auto kSpellingItem = 1;
 
 } // namespace
 
