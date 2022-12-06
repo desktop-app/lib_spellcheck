@@ -34,7 +34,7 @@ auto CheckProvider(DictPtr &validator, const std::string &provider) {
 auto IsHebrew(const QString &word) {
 	// Words with mixed scripts will be automatically ignored,
 	// so this check should be fine.
-	return ::Spellchecker::WordScript(&word) == QChar::Script_Hebrew;
+	return ::Spellchecker::WordScript(word) == QChar::Script_Hebrew;
 }
 
 class EnchantSpellChecker {
@@ -154,7 +154,7 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 }
 
 auto EnchantSpellChecker::findSuggestions(const QString &word) {
-	const auto wordScript = ::Spellchecker::WordScript(&word);
+	const auto wordScript = ::Spellchecker::WordScript(word);
 	auto w = word.toStdString();
 	std::vector<QString> result;
 	if (!_validators.size()) {
