@@ -21,11 +21,12 @@ RecognitionResult Recognize(QStringView text) {
 	const auto string = std::string(text.toUtf8().constData());
 	const auto results = lang_id.FindTopNMostFreqLangs(string, kMaxLangs);
 
-	auto maxProbability = 0.;
+	auto maxRatio = 0.;
 	auto final = NNetLanguageIdentifier::Result();
 	for (const auto &result : results) {
-		if (result.probability > maxProbability) {
-			maxProbability = result.probability;
+		const auto ratio = result.probability * result.proportion;
+		if (ratio > maxRatio) {
+			maxRatio = ratio;
 			final = result;
 		}
 	}
