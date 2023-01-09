@@ -20,6 +20,13 @@ if ((APPLE OR WIN32 OR use_enchant) AND NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
     set(system_spellchecker 1)
 endif()
 
+if (APPLE)
+    target_link_frameworks_weak(lib_spellcheck
+    PUBLIC
+        NaturalLanguage # Since macOS 10.14 only.
+    )
+endif()
+
 set(use_cld3 0)
 if (LINUX OR DESKTOP_APP_USE_CLD3)
     set(use_cld3 1)
