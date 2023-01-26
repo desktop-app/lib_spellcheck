@@ -10,7 +10,7 @@
 
 namespace Platform::Language {
 
-RecognitionResult Recognize(QStringView text) {
+LanguageId Recognize(QStringView text) {
 	using chrome_lang_id::NNetLanguageIdentifier;
 
 	constexpr auto kMinNumBytes = 0;
@@ -31,10 +31,9 @@ RecognitionResult Recognize(QStringView text) {
 		}
 	}
 	if (final.language == NNetLanguageIdentifier::kUnknown) {
-		return { .unknown = true };
-	} else {
-		return { .locale = QLocale(QString::fromStdString(final.language)) };
+		return {};
 	}
+	return { QLocale(QString::fromStdString(final.language)).language() };
 }
 
 } // namespace Platform::Language

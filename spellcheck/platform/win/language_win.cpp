@@ -125,7 +125,7 @@ void RecognizeTextLanguages(
 	}
 }
 
-RecognitionResult Recognize(QStringView text) {
+Id Recognize(QStringView text) {
 	if (Supported()) {
 		auto locales = std::vector<QLocale>();
 		RecognizeTextLanguages(
@@ -135,9 +135,9 @@ RecognitionResult Recognize(QStringView text) {
 				// Cut complex result, e.g. "sr-Cyrl".
 				locales.emplace_back(QString::fromWCharArray(r, 2));
 			});
-		return { .locale = locales[0] };
+		return { locales[0].language() };
 	}
-	return { .unknown = true };
+	return {};
 }
 
 } // namespace Platform::Language

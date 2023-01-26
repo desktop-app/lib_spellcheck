@@ -8,8 +8,8 @@
 
 namespace Platform::Language {
 
-RecognitionResult Recognize(QStringView text) {
-	return { .unknown = true };
+Id Recognize(QStringView text) {
+	return {};
 }
 
 } // namespace Platform::Language

@@ -6,15 +6,11 @@
 //
 #pragma once
 
-#include <QtCore/QLocale>
+#include "spellcheck/spellcheck_types.h"
 
 namespace Platform::Language {
 
-struct RecognitionResult final {
-	QLocale locale;
-	bool unknown = false;
-};
-[[nodiscard]] RecognitionResult Recognize(QStringView text);
+[[nodiscard]] LanguageId Recognize(QStringView text);
 
 } // namespace Platform::Language
 
