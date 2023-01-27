@@ -15,7 +15,7 @@ using Platform::NS2QString;
 
 namespace Platform::Language {
 
-Id Recognize(QStringView text) {
+LanguageId Recognize(QStringView text) {
 	if (@available(macOS 10.14, *)) {
 		constexpr auto kMaxHypotheses = 3;
 		static auto r = [[NLLanguageRecognizer alloc] init];
