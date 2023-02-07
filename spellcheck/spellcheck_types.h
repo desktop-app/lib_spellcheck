@@ -23,14 +23,17 @@ struct LanguageId {
 		};
 	}
 
+	[[nodiscard]] QLocale::Language language() const {
+		return (value == QLocale::C) ? QLocale::English : value;
+	}
 	[[nodiscard]] QLocale locale() const {
-		if (value == QLocale::C) {
-			return QLocale(QLocale::English);
-		}
-		auto result = QLocale(value);
-		return (result.language() == QLocale::C)
-			? QLocale(QLocale::English)
-			: result;
+		return QLocale(language());
+	}
+	[[nodiscard]] QString name() const {
+		return locale().name();
+	}
+	[[nodiscard]] QString twoLetterCode() const {
+		return name().toLower().mid(0, 2);
 	}
 
 	[[nodiscard]] bool known() const noexcept {
