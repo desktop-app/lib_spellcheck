@@ -14,9 +14,14 @@
 
 #include <QDir>
 #include <QFileInfo>
-#include <QTextCodec>
 
 #include <hunspell/hunspell.hxx>
+
+#if __has_include(<glibmm.h>)
+#include <glibmm.h>
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#include <QTextCodec>
+#endif // Qt < 6.0.0
 
 namespace Platform::Spellchecker::ThirdParty {
 namespace {
@@ -89,6 +94,70 @@ QString CustomDictionaryPath() {
 	return Hunspell(prepared.aff.constData(), prepared.dic.constData());
 }
 
+class CharsetConverter final {
+public:
+	CharsetConverter(const std::string &charset)
+#if __has_include(<glibmm.h>)
+	: _charset(charset)
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+	: _codec(QTextCodec::codecForName(charset))
+#endif // Qt < 6.0.0
+	{}
+
+	[[nodiscard]] bool isValid() const {
+#if __has_include(<glibmm.h>)
+		try {
+			Glib::convert("", _charset, "UTF-8");
+			Glib::convert("", "UTF-8", _charset);
+			return true;
+		} catch (...) {
+			return false;
+		}
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+		return _codec;
+#else // Qt < 6.0.0
+		return false;
+#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+	}
+
+	[[nodiscard]] std::string fromUnicode(const QString &data) {
+#if __has_include(<glibmm.h>)
+		try {
+			return Glib::convert(data.toStdString(), _charset, "UTF-8");
+		} catch (...) {
+			return {};
+		}
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+		return _codec->fromUnicode(data).toStdString();
+#else // Qt < 6.0.0
+		return {};
+#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+	}
+
+	[[nodiscard]] QString toUnicode(const std::string &data) {
+#if __has_include(<glibmm.h>)
+		try {
+			return QString::fromStdString(
+				Glib::convert(data, "UTF-8", _charset));
+		} catch (...) {
+			return {};
+		}
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+		return _codec->toUnicode(data.data(), data.length());
+#else // Qt < 6.0.0
+		return {};
+#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+	}
+
+private:
+#if __has_include(<glibmm.h>)
+	std::string _charset;
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+	QTextCodec *_codec;
+#endif // Qt < 6.0.0
+
+};
+
 class HunspellEngine {
 public:
 	HunspellEngine(const QString &lang);
@@ -112,7 +181,7 @@ private:
 	QString _lang;
 	QChar::Script _script;
 	std::unique_ptr<Hunspell> _hunspell;
-	QTextCodec *_codec;
+	std::unique_ptr<CharsetConverter> _converter;
 
 };
 
@@ -157,9 +226,7 @@ private:
 
 HunspellEngine::HunspellEngine(const QString &lang)
 : _lang(lang)
-, _script(::Spellchecker::LocaleToScriptCode(lang))
-, _hunspell(nullptr)
-, _codec(nullptr) {
+, _script(::Spellchecker::LocaleToScriptCode(lang)) {
 	const auto workingDir = ::Spellchecker::WorkingDirPath();
 	if (workingDir.isEmpty()) {
 		return;
@@ -176,8 +243,9 @@ HunspellEngine::HunspellEngine(const QString &lang)
 		prepared.aff.constData(),
 		prepared.dic.constData());
 
-	_codec = QTextCodec::codecForName(_hunspell->get_dic_encoding());
-	if (!_codec) {
+	_converter = std::make_unique<CharsetConverter>(
+		_hunspell->get_dic_encoding());
+	if (!_converter->isValid()) {
 		_hunspell.reset();
 	}
 }
@@ -187,21 +255,19 @@ bool HunspellEngine::isValid() const {
 }
 
 bool HunspellEngine::spell(const QString &word) const {
-	return _hunspell->spell(_codec->fromUnicode(word).toStdString());
+	return _hunspell->spell(_converter->fromUnicode(word));
 }
 
 void HunspellEngine::suggest(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	const auto stdWord = _codec->fromUnicode(wrongWord).toStdString();
+	const auto stdWord = _converter->fromUnicode(wrongWord);
 
 	for (const auto &guess : _hunspell->suggest(stdWord)) {
 		if (optionalSuggestions->size()	== kMaxSuggestions) {
 			return;
 		}
-		const auto qguess = _codec->toUnicode(
-			guess.data(),
-			guess.length());
+		const auto qguess = _converter->toUnicode(guess);
 		if (ranges::contains(*optionalSuggestions, qguess)) {
 			continue;
 		}
