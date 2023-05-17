@@ -100,7 +100,7 @@ public:
 #if __has_include(<glibmm.h>)
 	: _charset(charset)
 #elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
-	: _codec(QTextCodec::codecForName(charset))
+	: _codec(QTextCodec::codecForName(charset.c_str()))
 #endif // Qt < 6.0.0
 	{}
 
