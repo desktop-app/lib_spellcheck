@@ -17,9 +17,11 @@
 
 #include <hunspell/hunspell.hxx>
 
-#if __has_include(<glibmm.h>)
-#include <glibmm.h>
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#if __has_include(<glib/glib.hpp>)
+#include <glib/glib.hpp>
+
+using namespace gi::repository;
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 #include <QTextCodec>
 #endif // Qt < 6.0.0
 
@@ -97,62 +99,64 @@ QString CustomDictionaryPath() {
 class CharsetConverter final {
 public:
 	CharsetConverter(const std::string &charset)
-#if __has_include(<glibmm.h>)
+#if __has_include(<glib/glib.hpp>)
 	: _charset(charset)
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 	: _codec(QTextCodec::codecForName(charset.c_str()))
 #endif // Qt < 6.0.0
 	{}
 
 	[[nodiscard]] bool isValid() const {
-#if __has_include(<glibmm.h>)
-		try {
-			Glib::convert("", _charset, "UTF-8");
-			Glib::convert("", "UTF-8", _charset);
-			return true;
-		} catch (...) {
-			return false;
-		}
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#if __has_include(<glib/glib.hpp>)
+		const uchar empty[] = "";
+		return GLib::convert(empty, 0, _charset, "UTF-8")
+			&& GLib::convert(empty, 0, "UTF-8", _charset);
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 		return _codec;
 #else // Qt < 6.0.0
 		return false;
-#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
 	}
 
 	[[nodiscard]] std::string fromUnicode(const QString &data) {
-#if __has_include(<glibmm.h>)
-		try {
-			return Glib::convert(data.toStdString(), _charset, "UTF-8");
-		} catch (...) {
-			return {};
-		}
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#if __has_include(<glib/glib.hpp>)
+		const auto utf8 = data.toStdString();
+		const auto result = GLib::convert(
+			reinterpret_cast<const uchar*>(utf8.data()),
+			utf8.size(),
+			_charset,
+			"UTF-8",
+			nullptr,
+			nullptr);
+		return { result.begin(), result.end() };
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 		return _codec->fromUnicode(data).toStdString();
 #else // Qt < 6.0.0
 		return {};
-#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
 	}
 
 	[[nodiscard]] QString toUnicode(const std::string &data) {
-#if __has_include(<glibmm.h>)
-		try {
-			return QString::fromStdString(
-				Glib::convert(data, "UTF-8", _charset));
-		} catch (...) {
-			return {};
-		}
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
-		return _codec->toUnicode(data.data(), data.length());
+#if __has_include(<glib/glib.hpp>)
+		const auto result = GLib::convert(
+			reinterpret_cast<const uchar*>(data.data()),
+			data.size(),
+			"UTF-8",
+			_charset,
+			nullptr,
+			nullptr);
+		return QString::fromStdString({ result.begin(), result.end() });
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
+		return _codec->toUnicode(data.data(), data.size());
 #else // Qt < 6.0.0
 		return {};
-#endif // Qt >= 6.0.0 && !__has_include(<glibmm.h>)
+#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
 	}
 
 private:
-#if __has_include(<glibmm.h>)
+#if __has_include(<glib/glib.hpp>)
 	std::string _charset;
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glibmm.h>)
+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 	QTextCodec *_codec;
 #endif // Qt < 6.0.0
 
