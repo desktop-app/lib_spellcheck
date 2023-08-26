@@ -33,7 +33,7 @@
  */
 
 #include <enchant.h>
-#include <dlfcn.h>
+#include "base/platform/linux/base_linux_library.h"
 #include "spellcheck/platform/linux/linux_enchant.h"
 
 namespace {
@@ -205,21 +205,18 @@ void enchant::Broker::list_dicts (EnchantDictDescribeFn fn, void * user_data) {
 	f_enchant.broker_list_dicts (m_broker, fn, user_data);
 }
 
-#define GET_SYMBOL_enchant(func_name) do { \
-	typedef decltype (enchant_ ## func_name) * Fp; \
-	f_enchant.func_name = reinterpret_cast<Fp> ( dlsym (handle, "enchant_" # func_name)); \
-	if (!f_enchant.func_name) { \
+#define GET_SYMBOL_enchant(func_name) \
+	if (!base::Platform::LoadSymbol (handle, "enchant_" # func_name, f_enchant.func_name)) { \
 		return false; \
-	} \
-} while(0)
+	}
 
 bool enchant::loader::do_explicit_linking () {
 	static enum { NotLoadedYet, LoadSuccessful, LoadFailed = -1 } load_status;
 	if (load_status == NotLoadedYet) {
 		load_status = LoadFailed;
-		void * handle = dlopen ("libenchant.so.1", RTLD_NOW)
-				?: dlopen ("libenchant-2.so.2", RTLD_NOW)
-				?: dlopen ("libenchant.so.2", RTLD_NOW);
+		const auto handle = base::Platform::LoadLibrary ("libenchant.so.1", RTLD_NODELETE)
+				?: base::Platform::LoadLibrary ("libenchant-2.so.2", RTLD_NODELETE)
+				?: base::Platform::LoadLibrary ("libenchant.so.2", RTLD_NODELETE);
 		if (!handle) {
 			// logs ?
 			return false;
