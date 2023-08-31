@@ -10,7 +10,7 @@
 #include "base/timer.h"
 #include "spellcheck/platform/platform_spellcheck.h"
 #include "spellcheck/spellcheck_types.h"
-#include "ui/widgets/input_fields.h"
+#include "ui/widgets/fields/input_field.h"
 
 #include <QtGui/QSyntaxHighlighter>
 #include <QtGui/QTextBlock>
