@@ -556,7 +556,7 @@ void HunspellService::readFile() {
 	// {{"a"}, {"β"}};
 	auto groupedWords = ranges::views::all(
 		filteredWords
-	) | ranges::views::group_by([](auto &a, auto &b) {
+	) | ranges::views::chunk_by([](auto &a, auto &b) {
 		return WordScript(a) == WordScript(b);
 	}) | ranges::views::transform([](auto &&rng) {
 		return rng | ranges::to_vector;
