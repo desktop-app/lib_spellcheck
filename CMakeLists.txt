@@ -35,6 +35,8 @@ endif()
 target_precompile_headers(lib_spellcheck PRIVATE ${src_loc}/spellcheck/spellcheck_pch.h)
 nice_target_sources(lib_spellcheck ${src_loc}
 PRIVATE
+    highlighting/highlighting.qrc
+
     spellcheck/platform/linux/language_linux.cpp
     spellcheck/platform/linux/language_linux.h
     spellcheck/platform/linux/linux_enchant.cpp
@@ -57,18 +59,22 @@ PRIVATE
     spellcheck/third_party/hunspell_controller.h
     spellcheck/third_party/spellcheck_hunspell.cpp
     spellcheck/third_party/spellcheck_hunspell.h
+    spellcheck/spellcheck_types.h
+    spellcheck/spellcheck_highlight_syntax.cpp
+    spellcheck/spellcheck_highlight_syntax.h
     spellcheck/spellcheck_utils.cpp
     spellcheck/spellcheck_utils.h
-    spellcheck/spellcheck_types.h
+    spellcheck/spellcheck_value.cpp
+    spellcheck/spellcheck_value.h
     spellcheck/spelling_highlighter.cpp
     spellcheck/spelling_highlighter.h
     spellcheck/spelling_highlighter_helper.cpp
     spellcheck/spelling_highlighter_helper.h
-    spellcheck/spellcheck_value.cpp
-    spellcheck/spellcheck_value.h
 
     spellcheck/spellcheck_pch.h
 )
+
+target_prepare_qrc(lib_spellcheck)
 
 if (system_spellchecker)
     remove_target_sources(lib_spellcheck ${src_loc}
@@ -126,9 +132,11 @@ PRIVATE
     desktop-app::lib_base
     desktop-app::lib_rpl
     desktop-app::lib_crl
+    desktop-app::lib_prisma
     desktop-app::external_qt
     desktop-app::external_ranges
     desktop-app::external_gsl
+    desktop-app::external_xxhash
 )
 
 if (LINUX AND use_enchant)
