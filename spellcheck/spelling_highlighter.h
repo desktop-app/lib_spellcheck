@@ -21,6 +21,7 @@
 
 namespace Ui {
 struct ExtendedContextMenu;
+class PopupMenu;
 } // namespace Ui
 
 namespace Spellchecker {
@@ -57,6 +58,11 @@ public:
 		Fn<void()> showMenuCallback,
 		QPoint mousePosition);
 
+	void fillSpellcheckerMenu(
+		not_null<QMenu*> menu,
+		QTextCursor cursorForPosition,
+		FnMut<void(int firstSuggestionIndex)> show);
+
 protected:
 	void highlightBlock(const QString &text) override;
 	bool eventFilter(QObject *o, QEvent *e) override;
@@ -65,6 +71,7 @@ private:
 	void updatePalette();
 	void setEnabled(bool enabled);
 	void checkText(const QString &text);
+	void showSpellcheckerMenu();
 
 	void invokeCheckText(
 		int textPosition,
@@ -110,6 +117,7 @@ private:
 
 	not_null<Ui::InputField*> _field;
 	not_null<QTextEdit*> _textEdit;
+	base::unique_qptr<Ui::PopupMenu> _menu;
 
 	const std::optional<CustomContextMenuItem> _customContextMenuItem;
 

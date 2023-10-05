@@ -10,14 +10,17 @@
 #include "spellcheck/spellcheck_value.h"
 #include "spellcheck/spellcheck_utils.h"
 #include "spellcheck/spelling_highlighter_helper.h"
-#include "styles/palette.h"
+#include "ui/widgets/menu/menu.h"
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
+#include "ui/widgets/popup_menu.h"
 #include "ui/ui_utility.h"
 #include "base/qt/qt_common_adapters.h"
+#include "base/platform/base_platform_info.h"
+#include "base/event_filter.h"
+#include "styles/palette.h"
 
 namespace Spellchecker {
-
 namespace {
 
 constexpr auto kTagProperty = QTextFormat::UserProperty + 4;
@@ -148,6 +151,13 @@ inline MisspelledWord RangeFromCursorSelection(const QTextCursor &cursor) {
 	return MisspelledWord(start, cursor.selectionEnd() - start);
 }
 
+[[nodiscard]] bool SpellcheckSuggestEvent(not_null<QKeyEvent*> e) {
+	const auto modifier = Platform::IsMac()
+		? Qt::MetaModifier
+		: Qt::ControlModifier;
+	return (e->key() == Qt::Key_Space) && e->modifiers().testFlag(modifier);
+}
+
 } // namespace
 
 SpellingHighlighter::SpellingHighlighter(
@@ -204,9 +214,11 @@ SpellingHighlighter::SpellingHighlighter(
 	) | rpl::start_with_next([=](bool value) {
 		setEnabled(value);
 		if (_enabled) {
+			_field->installEventFilter(this);
 			_textEdit->installEventFilter(this);
 			_textEdit->viewport()->installEventFilter(this);
 		} else {
+			_field->installEventFilter(this);
 			_textEdit->removeEventFilter(this);
 			_textEdit->viewport()->removeEventFilter(this);
 		}
@@ -615,7 +627,17 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 	if (!_enabled) {
 		return false;
+	} else if (o == _field) {
+		if (e->type() == QEvent::KeyPress) {
+			const auto k = static_cast<QKeyEvent*>(e);
+			if (SpellcheckSuggestEvent(k)) {
+				showSpellcheckerMenu();
+				return true;
+			}
+		}
+		return false;
 	}
+
 	if (e->type() == QEvent::ContextMenu) {
 		const auto c = static_cast<QContextMenuEvent*>(e);
 		const auto menu = _textEdit->createStandardContextMenu();
@@ -638,7 +660,6 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		return true;
 	} else if (e->type() == QEvent::KeyPress) {
 		const auto k = static_cast<QKeyEvent*>(e);
-
 		if (ranges::contains(kKeysToCheck, k->key())) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
 				checkCurrentText();
@@ -736,25 +757,11 @@ void SpellingHighlighter::addSpellcheckerActions(
 		QTextCursor cursorForPosition,
 		Fn<void()> showMenuCallback,
 		QPoint mousePosition) {
-
-	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
-		&& _customContextMenuItem.has_value();
-
-	cursorForPosition.select(QTextCursor::WordUnderCursor);
-
-	// There is no reason to call async work if the word is skippable.
-	const auto skippable = [&] {
-		const auto &[p, l] = RangeFromCursorSelection(cursorForPosition);
-		const auto e = FindEntities(findBlock(p).text());
-		return (!l
-			|| isSkippableWord(p, l)
-			|| IntersectsAnyOfEntities(p, l, e));
-	}();
 	const auto menu = new QMenu(
 		ph::lng_spellchecker_submenu(ph::now),
 		parentMenu);
 
-	auto addToParentAndShow = [=] {
+	auto addToParentAndShow = [=](int) {
 		if (!menu->isEmpty()) {
 			using namespace Spelling::Helper;
 			if (IsContextMenuTop(parentMenu, mousePosition)) {
@@ -768,6 +775,64 @@ void SpellingHighlighter::addSpellcheckerActions(
 		}
 		showMenuCallback();
 	};
+	fillSpellcheckerMenu(menu, cursorForPosition, addToParentAndShow);
+}
+
+void SpellingHighlighter::showSpellcheckerMenu() {
+	auto menu = std::make_unique<QMenu>();
+	const auto raw = menu.get();
+
+	const auto cursor = _textEdit->textCursor();
+	auto rect = _textEdit->cursorRect(cursor);
+	rect.setTopLeft(_textEdit->viewport()->mapToGlobal(rect.topLeft()));
+	auto show = [=, menu = std::move(menu)](int firstSuggestion) mutable {
+		if (!menu->isEmpty()) {
+			_menu = base::make_unique_q<Ui::PopupMenu>(
+				_textEdit,
+				menu.release(),
+				_field->st().menu);
+			_menu->setForcedVerticalOrigin(
+				Ui::PopupMenu::VerticalOrigin::Top);
+			base::install_event_filter(_menu.get(), [=](
+					not_null<QEvent*> e) {
+				if (e->type() == QEvent::KeyPress) {
+					const auto k = static_cast<QKeyEvent*>(e.get());
+					if (SpellcheckSuggestEvent(k)) {
+						auto event = QKeyEvent(
+							QEvent::KeyPress,
+							Qt::Key_Down,
+							Qt::KeyboardModifiers());
+						_menu->menu()->handleKeyPress(&event);
+					}
+				}
+				return base::EventFilterResult::Continue;
+			});
+			_menu->popup(rect.topLeft());
+			if (_menu && firstSuggestion >= 0) {
+				_menu->menu()->setSelected(firstSuggestion, false);
+			}
+		}
+	};
+	fillSpellcheckerMenu(raw, cursor, std::move(show));
+}
+
+void SpellingHighlighter::fillSpellcheckerMenu(
+		not_null<QMenu*> menu,
+		QTextCursor cursorForPosition,
+		FnMut<void(int firstSuggestionIndex)> show) {
+	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
+		&& _customContextMenuItem.has_value();
+
+	cursorForPosition.select(QTextCursor::WordUnderCursor);
+
+	// There is no reason to call async work if the word is skippable.
+	const auto skippable = [&] {
+		const auto &[p, l] = RangeFromCursorSelection(cursorForPosition);
+		const auto e = FindEntities(findBlock(p).text());
+		return (!l
+			|| isSkippableWord(p, l)
+			|| IntersectsAnyOfEntities(p, l, e));
+	}();
 
 	if (customItem) {
 		menu->addAction(
@@ -776,20 +841,24 @@ void SpellingHighlighter::addSpellcheckerActions(
 	}
 
 	if (skippable) {
-		addToParentAndShow();
+		show(-1);
 		return;
 	}
 
 	const auto word = cursorForPosition.selectedText();
 
-	const auto fillMenu = [=,
-		addToParentAndShow = std::move(addToParentAndShow),
-		menu = std::move(menu)](
-			const auto isCorrect,
-			const auto suggestions,
-			const auto newTextCursor) {
-
-		const auto guard = gsl::finally(addToParentAndShow);
+	auto fillMenu = [
+		=,
+		show = std::move(show),
+		menu = std::move(menu)
+	](
+			bool isCorrect,
+			const auto &suggestions,
+			const auto &newTextCursor) mutable {
+		auto firstSuggestionIndex = -1;
+		const auto guard = gsl::finally([&] {
+			show(firstSuggestionIndex);
+		});
 
 		const auto addSeparator = [&] {
 			if (!menu->isEmpty()) {
@@ -833,6 +902,9 @@ void SpellingHighlighter::addSpellcheckerActions(
 
 		addSeparator();
 		for (const auto &suggestion : suggestions) {
+			if (firstSuggestionIndex < 0) {
+				firstSuggestionIndex = menu->actions().size();
+			}
 			auto replaceWord = [=] {
 				const auto oldTextCursor = _textEdit->textCursor();
 				_textEdit->setTextCursor(newTextCursor);
@@ -847,18 +919,19 @@ void SpellingHighlighter::addSpellcheckerActions(
 	crl::async([=,
 		newTextCursor = std::move(cursorForPosition),
 		fillMenu = std::move(fillMenu),
-		word = std::move(word)]() mutable {
-
+		word = std::move(word)
+	]() mutable {
 		const auto isCorrect = Platform::Spellchecker::CheckSpelling(word);
-		std::vector<QString> suggestions;
+		auto suggestions = std::vector<QString>();
 		if (!isCorrect) {
 			Platform::Spellchecker::FillSuggestionList(word, &suggestions);
 		}
 
 		crl::on_main(weak, [=,
-				newTextCursor = std::move(newTextCursor),
-				suggestions = std::move(suggestions),
-				fillMenu = std::move(fillMenu)]() mutable {
+			newTextCursor = std::move(newTextCursor),
+			suggestions = std::move(suggestions),
+			fillMenu = std::move(fillMenu)
+		]() mutable {
 			fillMenu(
 				isCorrect,
 				std::move(suggestions),
