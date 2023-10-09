@@ -218,7 +218,7 @@ EntitiesInText::iterator Insert(
 	}
 	const auto length = i->length();
 	for (const auto &entity : entities) {
-		if (entity.offset() + entity.length() >= length) {
+		if (entity.offset() + entity.length() > length) {
 			break;
 		}
 		auto j = text.entities.insert(next, entity);
