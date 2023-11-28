@@ -82,7 +82,7 @@ void QueuedHighlighter::process(Request request) {
 	}
 
 	const auto text = request.text.toStdString();
-	const auto language = request.language.toStdString();
+	const auto language = request.language.toLower().toStdString();
 	const auto tokens = _highlighter->tokenize(text, language);
 
 	static const auto colors = base::flat_map<std::string, int>{
