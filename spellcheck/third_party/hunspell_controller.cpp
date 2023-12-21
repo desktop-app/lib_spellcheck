@@ -54,8 +54,6 @@ struct PathPair {
 		return result;
 #endif // !Q_OS_WIN
 	};
-	const auto affPath = convert(aff);
-	const auto dicPath = convert(dic);
 
 	return {
 		.aff = convert(aff),
