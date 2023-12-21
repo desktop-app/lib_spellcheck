@@ -153,8 +153,7 @@ void QueuedHighlighter::process(Request request) {
 	if (offset != request.text.size()) {
 		// Something went wrong.
 		LOG(("Highlighting Error: for language '%1', text: %2"
-			).arg(request.language
-			).arg(request.text));
+			).arg(request.language, request.text));
 		entities.clear();
 	}
 	crl::on_main([hash, entities = std::move(entities)]() mutable {
