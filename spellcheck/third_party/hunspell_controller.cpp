@@ -119,14 +119,13 @@ public:
 	[[nodiscard]] std::string fromUnicode(const QString &data) {
 #if __has_include(<glib/glib.hpp>)
 		const auto utf8 = data.toStdString();
-		const auto result = GLib::convert(
+		return GLib::convert(
 			reinterpret_cast<const uchar*>(utf8.data()),
 			utf8.size(),
 			_charset,
 			"UTF-8",
 			nullptr,
-			nullptr);
-		return { result.begin(), result.end() };
+			nullptr) | ranges::to<std::string>;
 #elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 		return _codec->fromUnicode(data).toStdString();
 #else // Qt < 6.0.0
@@ -136,14 +135,13 @@ public:
 
 	[[nodiscard]] QString toUnicode(const std::string &data) {
 #if __has_include(<glib/glib.hpp>)
-		const auto result = GLib::convert(
+		return QString::fromStdString(GLib::convert(
 			reinterpret_cast<const uchar*>(data.data()),
 			data.size(),
 			"UTF-8",
 			_charset,
 			nullptr,
-			nullptr);
-		return QString::fromStdString({ result.begin(), result.end() });
+			nullptr) | ranges::to<std::string>);
 #elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
 		return _codec->toUnicode(data.data(), data.size());
 #else // Qt < 6.0.0
