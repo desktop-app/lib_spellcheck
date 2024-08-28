@@ -10,6 +10,7 @@
 #include "spellcheck/spellcheck_value.h"
 #include "spellcheck/spellcheck_utils.h"
 #include "spellcheck/spelling_highlighter_helper.h"
+#include "ui/qt_weak_factory.h"
 #include "ui/widgets/menu/menu.h"
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
