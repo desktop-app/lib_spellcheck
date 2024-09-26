@@ -8,7 +8,7 @@
 
 namespace Platform::Language {
 
-Id Recognize(QStringView text) {
+LanguageId Recognize(QStringView text) {
 	return {};
 }
 
