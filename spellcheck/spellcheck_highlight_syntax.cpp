@@ -64,6 +64,15 @@ private:
 	return result;
 }
 
+[[nodiscard]] const QString &LookupAlias(const QString &language) {
+	static const auto kAliases = base::flat_map<QString, QString>{
+		{ u"diff"_q, u"git"_q },
+		{ u"patch"_q, u"git"_q },
+	};
+	const auto i = kAliases.find(language);
+	return (i != end(kAliases)) ? i->second : language;
+}
+
 QueuedHighlighter::QueuedHighlighter() {
 	spellchecker_InitHighlightingResource();
 }
@@ -82,8 +91,8 @@ void QueuedHighlighter::process(Request request) {
 	}
 
 	const auto text = request.text.toStdString();
-	const auto language = request.language.toLower().toStdString();
-	const auto tokens = _highlighter->tokenize(text, language);
+	const auto language = LookupAlias(request.language.toLower());
+	const auto tokens = _highlighter->tokenize(text, language.toStdString());
 
 	static const auto colors = base::flat_map<std::string, int>{
 		{ "comment"      , 1 },
@@ -104,7 +113,6 @@ void QueuedHighlighter::process(Request request) {
 		{ "string"       , 4 },
 		{ "char"         , 4 },
 		{ "builtin"      , 4 },
-		{ "inserted"     , 4 },
 		{ "operator"     , 5 },
 		{ "entity"       , 5 },
 		{ "url"          , 5 },
@@ -113,6 +121,7 @@ void QueuedHighlighter::process(Request request) {
 		{ "keyword"      , 6 },
 		{ "function"     , 6 },
 		{ "class-name"   , 7 },
+		{ "inserted"     , 8 },
 	};
 
 	auto offset = 0;
