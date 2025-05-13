@@ -6,7 +6,7 @@
 //
 #include "spellcheck/third_party/language_cld3.h"
 
-#include "nnet_language_identifier.h"
+#include <nnet_language_identifier.h>
 
 namespace Platform::Language {
 
