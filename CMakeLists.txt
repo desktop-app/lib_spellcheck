@@ -142,6 +142,6 @@ PRIVATE
 if (LINUX AND use_enchant)
     find_package(PkgConfig REQUIRED)
 
-    pkg_search_module(ENCHANT REQUIRED enchant-2 enchant)
-    target_include_directories(lib_spellcheck SYSTEM PRIVATE ${ENCHANT_INCLUDE_DIRS})
+    pkg_search_module(DESKTOP_APP_ENCHANT REQUIRED enchant-2 enchant)
+    target_include_directories(lib_spellcheck SYSTEM PRIVATE ${DESKTOP_APP_ENCHANT_INCLUDE_DIRS})
 endif()
