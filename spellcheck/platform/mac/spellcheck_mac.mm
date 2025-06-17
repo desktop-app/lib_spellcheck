@@ -7,6 +7,7 @@
 #include "spellcheck/platform/mac/spellcheck_mac.h"
 
 #include "base/platform/mac/base_utilities_mac.h"
+#include "spellcheck/third_party/language_cld3.h"
 
 #import <AppKit/NSSpellChecker.h>
 #import <QuartzCore/QuartzCore.h>
@@ -56,11 +57,20 @@ std::vector<QString> ActiveLanguages() {
 	return SystemLanguages();
 }
 
-bool CheckSpelling(const QString &wordToCheck) {
-	const auto wordLength = wordToCheck.length();
+bool CheckSpelling(const QString &word) {
+	if (@available(macOS 10.14, *)) {
+		return [SharedSpellChecker()
+			checkSpellingOfString:Q2NSString(word)
+			startingAt:0
+			language:Q2NSString(Language::Recognize(word).twoLetterCode())
+			wrap:false
+			inSpellDocumentWithTag:0
+			wordCount:nil].location == NSNotFound;
+	}
+	const auto wordLength = word.length();
 	NSArray<NSTextCheckingResult*> *spellRanges =
 		[SharedSpellChecker()
-			checkString:Q2NSString(std::move(wordToCheck))
+			checkString:Q2NSString(word)
 			range:NSMakeRange(0, wordLength)
 			types:NSTextCheckingTypeSpelling
 			options:nil
