@@ -7,10 +7,10 @@
 
 #include "spellcheck/spelling_highlighter.h"
 
+#include "base/weak_qptr.h"
 #include "spellcheck/spellcheck_value.h"
 #include "spellcheck/spellcheck_utils.h"
 #include "spellcheck/spelling_highlighter_helper.h"
-#include "ui/qt_weak_factory.h"
 #include "ui/widgets/menu/menu.h"
 #include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
@@ -473,7 +473,7 @@ void SpellingHighlighter::invokeCheckText(
 
 	const auto rangesOffset = textPosition;
 	const auto text = partDocumentText(textPosition, textLength);
-	const auto weak = Ui::MakeWeak(this);
+	const auto weak = base::make_weak(this);
 	_countOfCheckingTextAsync++;
 	crl::async([=,
 		text = std::move(text),
@@ -542,7 +542,7 @@ void SpellingHighlighter::invokeCheckText(
 }
 
 void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
-	const auto weak = Ui::MakeWeak(this);
+	const auto weak = base::make_weak(this);
 	auto w = partDocumentText(singleWord.first, singleWord.second);
 	if (isSkippableWord(singleWord)) {
 		return;
@@ -919,7 +919,7 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 		}
 	};
 
-	const auto weak = Ui::MakeWeak(this);
+	const auto weak = base::make_weak(this);
 	crl::async([=,
 		newTextCursor = std::move(cursorForPosition),
 		fillMenu = std::move(fillMenu),
