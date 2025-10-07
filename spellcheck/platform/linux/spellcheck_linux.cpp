@@ -40,12 +40,14 @@ auto IsHebrew(const QString &word) {
 class EnchantSpellChecker {
 public:
 	auto knownLanguages();
+	auto availableLanguages();
 	bool checkSpelling(const QString &word);
 	auto findSuggestions(const QString &word);
 	void addWord(const QString &wordToAdd);
 	void ignoreWord(const QString &word);
 	void removeWord(const QString &word);
 	bool isWordInDictionary(const QString &word);
+	void updateLanguages(std::vector<int> languages);
 	static EnchantSpellChecker *instance();
 
 private:
@@ -53,9 +55,11 @@ private:
 	EnchantSpellChecker(const EnchantSpellChecker&) = delete;
 	EnchantSpellChecker& operator =(const EnchantSpellChecker&) = delete;
 
+	void loadValidators(const std::vector<std::string> &langs);
+
 	std::unique_ptr<enchant::Broker> _brokerHandle;
 	std::vector<DictPtr> _validators;
-
+	std::vector<std::string> _availableLanguages;
 	std::vector<not_null<enchant::Dict*>> _hspells;
 };
 
@@ -71,17 +75,34 @@ EnchantSpellChecker::EnchantSpellChecker() {
 			void *our_payload) {
 		static_cast<decltype(langs)*>(our_payload)->insert(language);
 	}, &langs);
+
+	_availableLanguages = std::vector<std::string>(langs.begin(), langs.end());
+}
+
+void EnchantSpellChecker::loadValidators(const std::vector<std::string> &langs) {
+	_validators.clear();
+	_hspells.clear();
 	_validators.reserve(langs.size());
+
+	// Try the system language first.
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
-		_brokerHandle->set_ordering(langTag, kOrdering);
-		_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
-		langs.erase(langTag);
+		if (ranges::contains(langs, langTag)) {
+			_brokerHandle->set_ordering(langTag, kOrdering);
+			_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
+		}
 	} catch (const enchant::Exception &e) {
 		// no first dictionary found
 	}
+
 	auto mySpellCount = 0;
 	for (const std::string &language : langs) {
+		// Skip system language if already added.
+		if (!_validators.empty()
+			&& _validators[0]->get_lang() == language) {
+			continue;
+		}
+
 		try {
 			_brokerHandle->set_ordering(language, kOrdering);
 			auto validator = DictPtr(_brokerHandle->request_dict(language));
@@ -190,16 +211,27 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 			}
 		}
 	}
+
+	// Collect suggestions from all enabled dictionaries.
+	std::set<std::string> uniqueSuggestions; // Set avoids duplicates.
 	for (const auto &validator : _validators) {
 		const auto lang = QString::fromStdString(validator->get_lang());
 		if (wordScript != ::Spellchecker::LocaleToScriptCode(lang)) {
 			continue;
 		}
-		convertSuggestions(validator->suggest(w));
-		if (!result.empty()) {
-			break;
+		const auto suggestions = validator->suggest(w);
+		for (const auto &suggestion : suggestions) {
+			if (!suggestion.empty()) {
+				uniqueSuggestions.insert(suggestion);
+			}
 		}
 	}
+
+	// Convert set to result vector.
+	convertSuggestions(std::vector<std::string>(
+		uniqueSuggestions.begin(),
+		uniqueSuggestions.end()));
+
 	return result;
 }
 
@@ -229,6 +261,37 @@ bool EnchantSpellChecker::isWordInDictionary(const QString &word) {
 	});
 }
 
+auto EnchantSpellChecker::availableLanguages() {
+	return _availableLanguages | ranges::views::transform([](const auto &locale) {
+		return QString::fromStdString(locale);
+	}) | ranges::to_vector;
+}
+
+void EnchantSpellChecker::updateLanguages(std::vector<int> languages) {
+	if (languages.empty()) {
+		// Empty list means disable all
+		loadValidators({});
+		return;
+	}
+
+	// Convert language IDs to locale strings.
+	// Load ALL available variants for each requested langId.
+	// E.g., if en_GB is requested, load both en_GB and en_GB-large.
+	std::vector<std::string> requestedLocales;
+	for (const auto langId : languages) {
+		// Find all available locales that match this langId
+		for (const auto &availableLocale : _availableLanguages) {
+			const auto availableLangId = ::Spellchecker::LangIdFromLocale(
+				QString::fromStdString(availableLocale));
+			if (availableLangId == langId) {
+				requestedLocales.push_back(availableLocale);
+			}
+		}
+	}
+
+	loadValidators(requestedLocales);
+}
+
 } // namespace
 
 void Init() {
@@ -238,7 +301,12 @@ std::vector<QString> ActiveLanguages() {
 	return EnchantSpellChecker::instance()->knownLanguages();
 }
 
+std::vector<QString> AvailableLanguages() {
+	return EnchantSpellChecker::instance()->availableLanguages();
+}
+
 void UpdateLanguages(std::vector<int> languages) {
+	EnchantSpellChecker::instance()->updateLanguages(languages);
 	::Spellchecker::UpdateSupportedScripts(ActiveLanguages());
 	crl::async([=] {
 		const auto result = ActiveLanguages();
@@ -283,6 +351,10 @@ void CheckSpellingText(
 }
 
 bool IsSystemSpellchecker() {
+	return true;
+}
+
+bool SupportsToggleDictionaries() {
 	return true;
 }
 

@@ -28,6 +28,7 @@ MisspelledWords RangesFromText(
 bool CheckSkipAndSpell(const QString &word);
 
 QLocale LocaleFromLangId(int langId);
+int LangIdFromLocale(const QString &locale);
 
 void UpdateSupportedScripts(std::vector<QString> languages);
 rpl::producer<> SupportedScriptsChanged();
