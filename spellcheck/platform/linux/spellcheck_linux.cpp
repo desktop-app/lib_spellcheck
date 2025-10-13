@@ -16,12 +16,6 @@ namespace Platform::Spellchecker {
 namespace {
 
 constexpr auto kHspell = "hspell";
-constexpr auto kMySpell = "myspell";
-constexpr auto kHunspell = "hunspell";
-constexpr auto kOrdering = "hspell,aspell,hunspell,myspell";
-constexpr auto kMaxValidators = 10;
-constexpr auto kMaxMySpellCount = 3;
-constexpr auto kMaxWordLength = 15;
 
 using DictPtr = std::unique_ptr<enchant::Dict>;
 
@@ -88,14 +82,12 @@ void EnchantSpellChecker::loadValidators(const std::vector<std::string> &langs) 
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
 		if (ranges::contains(langs, langTag)) {
-			_brokerHandle->set_ordering(langTag, kOrdering);
 			_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
 		}
 	} catch (const enchant::Exception &e) {
 		// no first dictionary found
 	}
 
-	auto mySpellCount = 0;
 	for (const std::string &language : langs) {
 		// Skip system language if already added.
 		if (!_validators.empty()
@@ -104,7 +96,6 @@ void EnchantSpellChecker::loadValidators(const std::vector<std::string> &langs) 
 		}
 
 		try {
-			_brokerHandle->set_ordering(language, kOrdering);
 			auto validator = DictPtr(_brokerHandle->request_dict(language));
 			if (!validator) {
 				continue;
@@ -112,18 +103,7 @@ void EnchantSpellChecker::loadValidators(const std::vector<std::string> &langs) 
 			if (CheckProvider(validator, kHspell)) {
 				_hspells.push_back(validator.get());
 			}
-			if (CheckProvider(validator, kMySpell)
-				|| CheckProvider(validator, kHunspell)) {
-				if (mySpellCount > kMaxMySpellCount) {
-					continue;
-				} else {
-					mySpellCount++;
-				}
-			}
 			_validators.push_back(std::move(validator));
-			if (_validators.size() > kMaxValidators) {
-				break;
-			}
 		} catch (const enchant::Exception &e) {
 			DEBUG_LOG(("Catch after request_dict: %1").arg(e.what()));
 		}
@@ -167,9 +147,6 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 			})) {
 			return false;
 		}
-		if (validator->get_lang().find("uk") == 0) {
-			return false;
-		}
 		return checkWord(validator, w);
 	}) || _validators.empty();
 }
@@ -192,16 +169,6 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 			}
 		}
 	};
-
-	if (word.size() >= kMaxWordLength) {
-		// The first element is the validator of the system language.
-		auto *v = _validators[0].get();
-		const auto lang = QString::fromStdString(v->get_lang());
-		if (wordScript == ::Spellchecker::LocaleToScriptCode(lang)) {
-			convertSuggestions(v->suggest(w));
-		}
-		return result;
-	}
 
 	if (IsHebrew(word) && _hspells.size()) {
 		for (const auto &h : _hspells) {
