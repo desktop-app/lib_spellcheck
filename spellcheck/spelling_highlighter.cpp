@@ -824,8 +824,7 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 		not_null<QMenu*> menu,
 		QTextCursor cursorForPosition,
 		FnMut<void(int firstSuggestionIndex)> show) {
-	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
-		&& _customContextMenuItem.has_value();
+	const auto customItem = _customContextMenuItem.has_value();
 
 	cursorForPosition.select(QTextCursor::WordUnderCursor);
 
