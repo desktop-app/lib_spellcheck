@@ -13,6 +13,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 #include <QtCore/QLocale>
+#include <set>
 
 using Platform::Q2NSString;
 using Platform::NS2QString;
@@ -46,6 +47,39 @@ inline auto SystemLanguages() {
 	return languages;
 }
 
+[[nodiscard]] auto RegionalVariantMap() {
+	static auto map = std::map<QString, QString>();
+	static auto initialized = false;
+	if (!initialized) {
+		initialized = true;
+		const auto uiLanguages = QLocale::system().uiLanguages();
+		for (const auto &ui : uiLanguages) {
+			if (ui == u"en-AU"_q || ui == u"en_AU"_q) {
+				map[u"en"_q] = ui;
+			} else if (ui == u"en-GB"_q || ui == u"en_GB"_q) {
+				if (!map.contains(u"en"_q)) {
+					map[u"en"_q] = ui;
+				}
+			} else if (ui == u"en-CA"_q || ui == u"en_CA"_q) {
+				if (!map.contains(u"en"_q)) {
+					map[u"en"_q] = ui;
+				}
+			} else if (ui == u"pt-BR"_q || ui == u"pt_BR"_q) {
+				map[u"pt"_q] = ui;
+			}
+		}
+	}
+	return map;
+}
+
+[[nodiscard]] auto PreferredRegionalVariant(const QString &lang) {
+	const auto &map = RegionalVariantMap();
+	if (const auto it = map.find(lang); it != map.end()) {
+		return it->second;
+	}
+	return lang;
+}
+
 } // namespace
 
 namespace Platform::Spellchecker {
@@ -59,10 +93,12 @@ std::vector<QString> ActiveLanguages() {
 
 bool CheckSpelling(const QString &word) {
 	if (@available(macOS 10.14, *)) {
+		const auto lang = PreferredRegionalVariant(
+			Language::Recognize(word).twoLetterCode());
 		return [SharedSpellChecker()
 			checkSpellingOfString:Q2NSString(word)
 			startingAt:0
-			language:Q2NSString(Language::Recognize(word).twoLetterCode())
+			language:Q2NSString(lang)
 			wrap:false
 			inSpellDocumentWithTag:0
 			wordCount:nil].location == NSNotFound;
