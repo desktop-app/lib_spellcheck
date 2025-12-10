@@ -180,20 +180,20 @@ SpellingHighlighter::SpellingHighlighter(
 	// Use the patched SpellCheckUnderline style.
 	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
 	style::PaletteChanged(
-	) | rpl::start_with_next([=] {
+	) | rpl::on_next([=] {
 		updatePalette();
 		rehighlight();
 	}, _lifetime);
 	updatePalette();
 
 	_field->documentContentsChanges(
-	) | rpl::start_with_next([=](const auto &value) {
+	) | rpl::on_next([=](const auto &value) {
 		const auto &[pos, removed, added] = value;
 		contentsChange(pos, removed, added);
 	}, _lifetime);
 
 	_field->markdownTagApplies(
-	) | rpl::start_with_next([=](auto markdownTag) {
+	) | rpl::on_next([=](auto markdownTag) {
 		if (!IsTagUnspellcheckable(markdownTag.tag)) {
 			return;
 		}
@@ -212,7 +212,7 @@ SpellingHighlighter::SpellingHighlighter(
 
 	std::move(
 		enabled
-	) | rpl::start_with_next([=](bool value) {
+	) | rpl::on_next([=](bool value) {
 		setEnabled(value);
 		if (_enabled) {
 			_field->installEventFilter(this);
@@ -226,7 +226,7 @@ SpellingHighlighter::SpellingHighlighter(
 	}, _lifetime);
 
 	Spellchecker::SupportedScriptsChanged(
-	) | rpl::start_with_next([=] {
+	) | rpl::on_next([=] {
 		checkCurrentText();
 	}, _lifetime);
 }
