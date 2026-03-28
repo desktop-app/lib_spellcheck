@@ -8,6 +8,7 @@
 #include "spellcheck/spelling_highlighter.h"
 
 #include "ui/platform/ui_platform_utility.h"
+#include "ui/widgets/shadow.h"
 #include "styles/style_widgets.h"
 #include "styles/palette.h"
 
@@ -35,7 +36,7 @@ bool IsContextMenuTop(not_null<QMenu*> menu, QPoint mousePosition) {
 
 	const auto line = st::lineWidth;
 	const auto p = Ui::Platform::TranslucentWindowsSupported()
-		? stPopup.shadow.extend
+		? Ui::BoxShadow::ExtendFor(stPopup.shadow)
 		: style::margins(line, line, line, line);
 
 	const auto additional = kFormattingItem + kSpellingItem;
