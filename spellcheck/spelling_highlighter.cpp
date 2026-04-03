@@ -597,10 +597,7 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	if (position < 0) {
-		position = 0;
-	}
-	_cursor.setPosition(std::min(position, size()));
+	_cursor.setPosition(std::clamp(position, 0, std::max(0, size() - 1)));
 	_cursor.select(QTextCursor::WordUnderCursor);
 	return RangeFromCursorSelection(_cursor);
 }
