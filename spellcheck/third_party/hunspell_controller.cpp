@@ -97,14 +97,19 @@ QString CustomDictionaryPath() {
 class CharsetConverter final {
 public:
 	CharsetConverter(const std::string &charset)
+	: _isUtf8(IsUtf8Name(charset))
 #if __has_include(<glib/glib.hpp>)
-	: _charset(charset)
+	, _charset(charset)
 #elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-	: _codec(QTextCodec::codecForName(charset.c_str()))
+	, _codec(_isUtf8 ? nullptr : QTextCodec::codecForName(charset.c_str()))
 #endif // Qt < 6.0.0
 	{}
 
 	[[nodiscard]] bool isValid() const {
+		if (_isUtf8) {
+			// QString::toStdString / fromStdString are UTF-8 on all platforms.
+			return true;
+		}
 #if __has_include(<glib/glib.hpp>)
 		const uchar empty[] = "";
 		return GLib::convert(empty, 0, _charset, "UTF-8")
@@ -117,6 +122,9 @@ public:
 	}
 
 	[[nodiscard]] std::string fromUnicode(const QString &data) {
+		if (_isUtf8) {
+			return data.toStdString();
+		}
 #if __has_include(<glib/glib.hpp>)
 		const auto utf8 = data.toStdString();
 		return GLib::convert(
@@ -134,6 +142,9 @@ public:
 	}
 
 	[[nodiscard]] QString toUnicode(const std::string &data) {
+		if (_isUtf8) {
+			return QString::fromStdString(data);
+		}
 #if __has_include(<glib/glib.hpp>)
 		return QString::fromStdString(GLib::convert(
 			reinterpret_cast<const uchar*>(data.data()),
@@ -150,10 +161,23 @@ public:
 	}
 
 private:
+	[[nodiscard]] static bool IsUtf8Name(const std::string &charset) {
+		auto upper = std::string();
+		upper.reserve(charset.size());
+		for (const auto ch : charset) {
+			if (ch != '-' && ch != '_') {
+				upper.push_back(std::toupper(
+					static_cast<unsigned char>(ch)));
+			}
+		}
+		return upper == "UTF8";
+	}
+
+	const bool _isUtf8 = false;
 #if __has_include(<glib/glib.hpp>)
 	std::string _charset;
 #elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-	QTextCodec *_codec;
+	QTextCodec *_codec = nullptr;
 #endif // Qt < 6.0.0
 
 };
