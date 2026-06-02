@@ -28,7 +28,8 @@ constexpr auto kTagProperty = QTextFormat::UserProperty + 4;
 const auto kUnspellcheckableTags = {
 	&Ui::InputField::kTagCode,
 	&Ui::InputField::kTagPre,
-	&Ui::InputField::kTagUnderline
+	&Ui::InputField::kTagUnderline,
+	&Ui::InputField::kTagIvMath
 };
 
 constexpr auto kColdSpellcheckingTimeout = crl::time(1000);
