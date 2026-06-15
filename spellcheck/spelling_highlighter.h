@@ -21,7 +21,6 @@
 #include <rpl/event_stream.h>
 
 namespace Ui {
-struct ExtendedContextMenu;
 class PopupMenu;
 } // namespace Ui
 
@@ -44,10 +43,6 @@ public:
 	void contentsChange(int pos, int removed, int added);
 	void checkCurrentText();
 	bool enabled();
-
-	auto contextMenuCreated() {
-		return _contextMenuCreated.events();
-	}
 
 	// Windows system spellchecker forces us to perform spell operations
 	// In another thread, so the word check and getting a list of suggestions
@@ -123,9 +118,6 @@ private:
 	const std::optional<CustomContextMenuItem> _customContextMenuItem;
 
 	rpl::lifetime _lifetime;
-
-	using ContextMenu = Ui::InputField::ExtendedContextMenu;
-	rpl::event_stream<ContextMenu> _contextMenuCreated;
 
 };
 

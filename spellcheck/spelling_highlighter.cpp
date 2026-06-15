@@ -230,6 +230,20 @@ SpellingHighlighter::SpellingHighlighter(
 	) | rpl::on_next([=] {
 		checkCurrentText();
 	}, _lifetime);
+
+	_field->addContextMenuHook([=](
+			Ui::InputField::ContextMenuRequest request) {
+		if (!_enabled) {
+			return;
+		}
+		// Spell operations may run in another thread (Windows system
+		// spellchecker), so we defer showing the menu until they finish.
+		addSpellcheckerActions(
+			request.menu,
+			_textEdit->cursorForPosition(request.event->pos()),
+			request.awaitAsyncWork(),
+			request.event->globalPos());
+	});
 }
 
 void SpellingHighlighter::updatePalette() {
@@ -640,27 +654,7 @@ bool SpellingHighlighter::eventFilter(QObject *o, QEvent *e) {
 		return false;
 	}
 
-	if (e->type() == QEvent::ContextMenu) {
-		const auto c = static_cast<QContextMenuEvent*>(e);
-		const auto menu = _textEdit->createStandardContextMenu();
-		if (!menu || !c) {
-			return false;
-		}
-		// Copy of QContextMenuEvent.
-		auto copyEvent = std::make_shared<QContextMenuEvent>(
-			c->reason(),
-			c->pos(),
-			c->globalPos());
-		auto showMenu = [=, copyEvent = std::move(copyEvent)] {
-			_contextMenuCreated.fire({ menu, copyEvent });
-		};
-		addSpellcheckerActions(
-			std::move(menu),
-			_textEdit->cursorForPosition(c->pos()),
-			std::move(showMenu),
-			c->globalPos());
-		return true;
-	} else if (e->type() == QEvent::KeyPress) {
+	if (e->type() == QEvent::KeyPress) {
 		const auto k = static_cast<QKeyEvent*>(e);
 		if (ranges::contains(kKeysToCheck, k->key())) {
 			if (_addedSymbols + _removedSymbols + _lastPosition) {
