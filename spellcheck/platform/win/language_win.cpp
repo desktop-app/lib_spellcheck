@@ -73,11 +73,13 @@ struct unique_bag final : public MAPPING_PROPERTY_BAG {
 	}
 	unique_bag(unique_bag const &other) = delete;
 	~unique_bag() {
-		MappingFreePropertyBag(this);
+		if (Size) {
+			MappingFreePropertyBag(this);
+		}
 	}
 };
 
-inline void MappingRecognizeTextFromService(
+[[nodiscard]] bool MappingRecognizeTextFromService(
 		REFGUID service,
 		LPCWSTR text,
 		DWORD length,
@@ -89,13 +91,27 @@ inline void MappingRecognizeTextFromService(
 	auto dwServicesCount = DWORD(0);
 	auto services = unique_services();
 
-	const auto hr = MappingGetServices(&options, &services, &dwServicesCount);
-	if (FAILED(hr)) {
-		return;
+	const auto servicesResult = MappingGetServices(
+		&options,
+		&services,
+		&dwServicesCount);
+	if (FAILED(servicesResult) || !dwServicesCount || !services.services) {
+		return false;
 	}
 
 	bag.Size = sizeof(bag);
-	MappingRecognizeText(services, text, length, 0, nullptr, &bag);
+	const auto recognitionResult = MappingRecognizeText(
+		services,
+		text,
+		length,
+		0,
+		nullptr,
+		&bag);
+	if (recognitionResult != S_OK) {
+		bag.Size = 0;
+		return false;
+	}
+	return true;
 }
 
 } // namespace
@@ -109,11 +125,16 @@ void RecognizeTextLanguages(
 	}
 
 	auto bag = unique_bag();
-	MappingRecognizeTextFromService(
+	if (!MappingRecognizeTextFromService(
 		ELS_GUID_LANGUAGE_DETECTION,
 		text,
 		length,
-		bag);
+		bag)
+		|| !bag.dwRangesCount
+		|| !bag.prgResultRanges
+		|| !bag.prgResultRanges[0].pData) {
+		return;
+	}
 
 	auto pos = reinterpret_cast<LPCWSTR>(bag.prgResultRanges[0].pData);
 	for (; *pos;) {
@@ -135,7 +156,10 @@ Id Recognize(QStringView text) {
 				// Cut complex result, e.g. "sr-Cyrl".
 				locales.emplace_back(QString::fromWCharArray(r, 2));
 			});
-		return { locales[0].language() };
+		if (locales.empty()) {
+			return {};
+		}
+		return { locales.front().language() };
 	}
 	return {};
 }
