@@ -318,4 +318,23 @@ QLocale LocaleFromLangId(int langId) {
 	return QLocale(lang, country);
 }
 
+int LangIdFromLocale(const QString &locale) {
+	const auto qlocale = QLocale(locale);
+	const auto lang = qlocale.language();
+	const auto country = qlocale.country();
+
+	if (country != QLocale::AnyCountry) {
+		constexpr QLocale::Language kLangsForLWC[] = { QLocale::English, QLocale::Portuguese };
+		constexpr QLocale::Country kDefaultCountries[] = { QLocale::UnitedStates, QLocale::Brazil };
+
+		if (ranges::contains(kLangsForLWC, lang)
+			&& ranges::contains(kDefaultCountries, country)) {
+			return int(lang);
+		}
+
+		return (int(lang) * kFactor) + int(country);
+	}
+	return int(lang);
+}
+
 } // namespace Spellchecker

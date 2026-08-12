@@ -91,6 +91,11 @@ std::vector<QString> ActiveLanguages() {
 	return SystemLanguages();
 }
 
+std::vector<QString> AvailableLanguages() {
+	// SupportsToggleDictionaries() returns false; not supported.
+	return {};
+}
+
 bool CheckSpelling(const QString &word) {
 	if (@available(macOS 10.14, *)) {
 		const auto lang = PreferredRegionalVariant(
@@ -212,8 +217,13 @@ bool IsSystemSpellchecker() {
 	return true;
 }
 
+bool SupportsToggleDictionaries() {
+	// Apparently not fusible; can only be toggled in system settings.
+	return false;
+}
+
 void UpdateLanguages(std::vector<int> languages) {
-	::Spellchecker::UpdateSupportedScripts(SystemLanguages());
+	// SupportsToggleDictionaries() returns false; not supported.
 }
 
 } // namespace Platform::Spellchecker
