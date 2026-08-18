@@ -492,69 +492,62 @@ void SpellingHighlighter::invokeCheckText(
 	const auto text = partDocumentText(textPosition, textLength);
 	const auto weak = base::make_weak(this);
 	_countOfCheckingTextAsync++;
-	crl::async([=,
-		text = std::move(text),
-		callback = std::move(callback)]() mutable {
-		MisspelledWords misspelledWordRanges;
-		Platform::Spellchecker::CheckSpellingText(
-			text,
-			&misspelledWordRanges);
+	Platform::Spellchecker::CheckSpellingText(text, [=,
+			callback = std::move(callback)](MisspelledWords &&ranges) mutable {
+		if (!weak) {
+			return;
+		}
 		if (rangesOffset) {
-			ranges::for_each(misspelledWordRanges, [&](auto &&range) {
+			ranges::for_each(ranges, [&](auto &&range) {
 				range.first += rangesOffset;
 			});
 		}
-		crl::on_main(weak, [=,
-				text = std::move(text),
-				ranges = std::move(misspelledWordRanges),
-				callback = std::move(callback)]() mutable {
-			_countOfCheckingTextAsync--;
-			// Checking a large part of text can take an unknown amount of
-			// time. So we have to compare the text before and after async
-			// work.
-			// If the text has changed during async and we have more async,
-			// we don't perform further refreshing of cache and underlines.
-			// But if it was the last async, we should invoke a new one.
-			if (compareDocumentText(text, textPosition, textLength)) {
-				if (!_countOfCheckingTextAsync) {
-					checkCurrentText();
-				}
-				return;
+		_countOfCheckingTextAsync--;
+		// Checking a large part of text can take an unknown amount of
+		// time. So we have to compare the text before and after async
+		// work.
+		// If the text has changed during async and we have more async,
+		// we don't perform further refreshing of cache and underlines.
+		// But if it was the last async, we should invoke a new one.
+		if (compareDocumentText(text, textPosition, textLength)) {
+			if (!_countOfCheckingTextAsync) {
+				checkCurrentText();
 			}
-			auto filtered = filterSkippableWords(ranges);
+			return;
+		}
+		auto filtered = filterSkippableWords(ranges);
 
-			// When we finish checking the text, the user can
-			// supplement the last word and there may be a situation where
-			// a part of the last word may not be underlined correctly.
-			// Example:
-			// 1. We insert a text with an incomplete last word.
-			// "Time in a bottl".
-			// 2. We don't wait for the check to be finished
-			// and end the last word with the letter "e".
-			// 3. invokeCheckText() will mark the last word "bottl" as
-			// misspelled.
-			// 4. checkSingleWord() will mark the "bottle" as correct and
-			// leave it as it is.
-			// 5. The first five letters of the "bottle" will be underlined
-			// and the sixth will not be underlined.
-			// We can fix it with a check of completeness of the last word.
-			if (filtered.size()) {
-				const auto lastWord = filtered.back();
-				if (const auto endOfText = textPosition + textLength;
-					EndOfWord(lastWord) == endOfText) {
-					const auto word = getWordUnderPosition(endOfText);
-					if (EndOfWord(word) != endOfText) {
-						filtered.pop_back();
-						checkSingleWord(word);
-					}
+		// When we finish checking the text, the user can
+		// supplement the last word and there may be a situation where
+		// a part of the last word may not be underlined correctly.
+		// Example:
+		// 1. We insert a text with an incomplete last word.
+		// "Time in a bottl".
+		// 2. We don't wait for the check to be finished
+		// and end the last word with the letter "e".
+		// 3. invokeCheckText() will mark the last word "bottl" as
+		// misspelled.
+		// 4. checkSingleWord() will mark the "bottle" as correct and
+		// leave it as it is.
+		// 5. The first five letters of the "bottle" will be underlined
+		// and the sixth will not be underlined.
+		// We can fix it with a check of completeness of the last word.
+		if (filtered.size()) {
+			const auto lastWord = filtered.back();
+			if (const auto endOfText = textPosition + textLength;
+				EndOfWord(lastWord) == endOfText) {
+				const auto word = getWordUnderPosition(endOfText);
+				if (EndOfWord(word) != endOfText) {
+					filtered.pop_back();
+					checkSingleWord(word);
 				}
 			}
+		}
 
-			callback(std::move(filtered));
-			for (const auto &b : blocksFromRange(textPosition, textLength)) {
-				rehighlightBlock(b);
-			}
-		});
+		callback(std::move(filtered));
+		for (const auto &b : blocksFromRange(textPosition, textLength)) {
+			rehighlightBlock(b);
+		}
 	});
 }
 
@@ -564,28 +557,21 @@ void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
 	if (isSkippableWord(singleWord)) {
 		return;
 	}
-	crl::async([=,
-		w = std::move(w),
-		singleWord = std::move(singleWord)]() mutable {
-		if (Platform::Spellchecker::CheckSpelling(w)) {
+	Platform::Spellchecker::CheckSpelling(w, [=](bool correct) {
+		if (!weak || correct) {
 			return;
 		}
-
-		crl::on_main(weak, [=,
-				w = std::move(w),
-				singleWord = std::move(singleWord)]() mutable {
-			if (compareDocumentText(w, singleWord.first, singleWord.second)) {
-				return;
-			}
-			const auto posOfWord = singleWord.first;
-			ranges::insert(
-				_cachedRanges,
-				ranges::find_if(_cachedRanges, [&](auto &&w) {
-					return w.first >= posOfWord;
-				}),
-				singleWord);
-			rehighlightBlock(findBlock(posOfWord));
-		});
+		if (compareDocumentText(w, singleWord.first, singleWord.second)) {
+			return;
+		}
+		const auto posOfWord = singleWord.first;
+		ranges::insert(
+			_cachedRanges,
+			ranges::find_if(_cachedRanges, [&](auto &&word) {
+				return word.first >= posOfWord;
+			}),
+			singleWord);
+		rehighlightBlock(findBlock(posOfWord));
 	});
 }
 
@@ -919,27 +905,17 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 	};
 
 	const auto weak = base::make_weak(this);
-	crl::async([=,
+	Platform::Spellchecker::LookupWord(word, [=,
 		newTextCursor = std::move(cursorForPosition),
-		fillMenu = std::move(fillMenu),
-		word = std::move(word)
-	]() mutable {
-		const auto isCorrect = Platform::Spellchecker::CheckSpelling(word);
-		auto suggestions = std::vector<QString>();
-		if (!isCorrect) {
-			Platform::Spellchecker::FillSuggestionList(word, &suggestions);
+		fillMenu = std::move(fillMenu)
+	](bool correct, std::vector<QString> &&suggestions) mutable {
+		if (!weak) {
+			return;
 		}
-
-		crl::on_main(weak, [=,
-			newTextCursor = std::move(newTextCursor),
-			suggestions = std::move(suggestions),
-			fillMenu = std::move(fillMenu)
-		]() mutable {
-			fillMenu(
-				isCorrect,
-				std::move(suggestions),
-				std::move(newTextCursor));
-		});
+		fillMenu(
+			correct,
+			std::move(suggestions),
+			std::move(newTextCursor));
 	});
 }
 
