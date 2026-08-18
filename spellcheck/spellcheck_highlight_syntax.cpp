@@ -9,6 +9,7 @@
 #include "base/base_file_utilities.h"
 #include "base/debug_log.h"
 #include "base/flat_map.h"
+#include "base/flat_set.h"
 #include "crl/crl_object_on_queue.h"
 
 #include "SyntaxHighlighter.h"
@@ -16,6 +17,7 @@
 #include <QtCore/QFile>
 
 #include <xxhash.h>
+#include <deque>
 #include <variant>
 #include <string>
 
@@ -34,7 +36,11 @@ void spellchecker_InitHighlightingResource() {
 namespace Spellchecker {
 namespace {
 
+constexpr auto kCacheLimit = 256;
+
 base::flat_map<XXH64_hash_t, EntitiesInText> Cache;
+std::deque<XXH64_hash_t> CacheOrder;
+base::flat_set<XXH64_hash_t> Pending;
 HighlightProcessId ProcessIdAutoIncrement/* = 0*/;
 rpl::event_stream<HighlightProcessId> ReadyStream;
 
@@ -166,7 +172,15 @@ void QueuedHighlighter::process(Request request) {
 		entities.clear();
 	}
 	crl::on_main([hash, entities = std::move(entities)]() mutable {
-		Cache.emplace(hash, std::move(entities));
+		Pending.remove(hash);
+		if (!Cache.emplace(hash, std::move(entities)).second) {
+			return;
+		}
+		CacheOrder.push_back(hash);
+		while (CacheOrder.size() > kCacheLimit) {
+			Cache.remove(CacheOrder.front());
+			CacheOrder.pop_front();
+		}
 	});
 }
 
@@ -275,7 +289,10 @@ HighlightProcessId TryHighlightSyntax(TextWithEntities &text) {
 			b = text.entities.begin();
 			e = text.entities.end();
 		} else {
-			Schedule(already.hash, text, i);
+			// Skip re-scheduling an already-queued block.
+			if (Pending.emplace(already.hash).second) {
+				Schedule(already.hash, text, i);
+			}
 			if (!processId) {
 				processId = ++ProcessIdAutoIncrement;
 			}
