@@ -826,10 +826,11 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 	// There is no reason to call async work if the word is skippable.
 	const auto skippable = [&] {
 		const auto &[p, l] = RangeFromCursorSelection(cursorForPosition);
-		const auto e = FindEntities(findBlock(p).text());
+		const auto block = findBlock(p);
+		const auto e = FindEntities(block.text());
 		return (!l
 			|| isSkippableWord(p, l)
-			|| IntersectsAnyOfEntities(p, l, e));
+			|| IntersectsAnyOfEntities(p - block.position(), l, e));
 	}();
 
 	if (customItem) {
