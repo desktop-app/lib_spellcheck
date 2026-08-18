@@ -211,15 +211,21 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 
 void EnchantSpellChecker::addWord(const QString &wordToAdd) {
 	std::lock_guard lock(_mutex);
+	if (_validators.empty()) {
+		return;
+	}
 	auto word = wordToAdd.toStdString();
-	auto &&first = _validators.at(0);
+	auto &&first = _validators.front();
 	first->add(word);
 	first->add_to_session(word);
 }
 
 void EnchantSpellChecker::ignoreWord(const QString &word) {
 	std::lock_guard lock(_mutex);
-	_validators.at(0)->add_to_session(word.toStdString());
+	if (_validators.empty()) {
+		return;
+	}
+	_validators.front()->add_to_session(word.toStdString());
 }
 
 void EnchantSpellChecker::removeWord(const QString &word) {
