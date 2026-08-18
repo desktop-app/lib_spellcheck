@@ -4,6 +4,7 @@
 // Author: Nicholas Guriev <guriev-ns@ya.ru>, public domain, 2019
 // License: CC0, https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
+#include <mutex>
 #include <set>
 #include <QLocale>
 
@@ -57,6 +58,8 @@ private:
 	std::vector<DictPtr> _validators;
 
 	std::vector<not_null<enchant::Dict*>> _hspells;
+
+	std::mutex _mutex;
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
@@ -115,12 +118,14 @@ EnchantSpellChecker *EnchantSpellChecker::instance() {
 }
 
 auto EnchantSpellChecker::knownLanguages() {
+	std::lock_guard lock(_mutex);
 	return _validators | ranges::views::transform([](const auto &validator) {
 		return QString(validator->get_lang().c_str());
 	}) | ranges::to_vector;
 }
 
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
+	std::lock_guard lock(_mutex);
 	auto w = word.toStdString();
 
 	const auto checkWord = [&](const auto &validator, auto w) {
@@ -154,6 +159,7 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 }
 
 auto EnchantSpellChecker::findSuggestions(const QString &word) {
+	std::lock_guard lock(_mutex);
 	const auto wordScript = ::Spellchecker::WordScript(word);
 	auto w = word.toStdString();
 	std::vector<QString> result;
@@ -204,6 +210,7 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 }
 
 void EnchantSpellChecker::addWord(const QString &wordToAdd) {
+	std::lock_guard lock(_mutex);
 	auto word = wordToAdd.toStdString();
 	auto &&first = _validators.at(0);
 	first->add(word);
@@ -211,10 +218,12 @@ void EnchantSpellChecker::addWord(const QString &wordToAdd) {
 }
 
 void EnchantSpellChecker::ignoreWord(const QString &word) {
+	std::lock_guard lock(_mutex);
 	_validators.at(0)->add_to_session(word.toStdString());
 }
 
 void EnchantSpellChecker::removeWord(const QString &word) {
+	std::lock_guard lock(_mutex);
 	auto w = word.toStdString();
 	for (const auto &validator : _validators) {
 		validator->remove_from_session(w);
@@ -223,6 +232,7 @@ void EnchantSpellChecker::removeWord(const QString &word) {
 }
 
 bool EnchantSpellChecker::isWordInDictionary(const QString &word) {
+	std::lock_guard lock(_mutex);
 	auto w = word.toStdString();
 	return ranges::any_of(_validators, [&w](const auto &validator) {
 		return validator->is_added(w);
