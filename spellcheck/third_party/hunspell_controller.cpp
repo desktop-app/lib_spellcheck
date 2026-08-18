@@ -336,7 +336,6 @@ std::vector<QString> &HunspellService::addedWords(const QString &word) {
 
 // Thread: Main.
 void HunspellService::updateLanguages(std::vector<QString> langs) {
-	Expects(_suggestionsEpoch.load() == 0);
 	*_epoch += 1;
 
 	_activeLanguages.clear();
