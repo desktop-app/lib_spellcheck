@@ -261,9 +261,11 @@ void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	}
 
 	{
-		const auto oldText = documentText().mid(
+		const auto whole = documentText();
+		const auto sepIndex = whole.indexOf(QChar::ParagraphSeparator, pos);
+		const auto oldText = whole.mid(
 			pos,
-			documentText().indexOf(QChar::ParagraphSeparator, pos));
+			(sepIndex == -1) ? -1 : (sepIndex - pos));
 		updateDocumentText();
 
 		const auto b = findBlock(pos);
