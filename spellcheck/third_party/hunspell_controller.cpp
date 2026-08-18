@@ -10,7 +10,6 @@
 #include "spellcheck/spellcheck_value.h"
 
 #include <mutex>
-#include <shared_mutex>
 
 #include <QDir>
 #include <QFileInfo>
@@ -244,7 +243,8 @@ private:
 	std::shared_ptr<std::atomic<int>> _epoch;
 	std::atomic<int> _suggestionsEpoch = 0;
 
-	std::shared_ptr<std::shared_mutex> _engineMutex;
+	// Guards _engines, _customDict, _addedWords and _ignoredWords.
+	std::shared_ptr<std::mutex> _mutex;
 
 };
 
@@ -316,7 +316,7 @@ HunspellService::HunspellService()
 : _engines(std::make_shared<std::vector<std::unique_ptr<HunspellEngine>>>())
 , _customDict(std::make_unique<Hunspell>("", ""))
 , _epoch(std::make_shared<std::atomic<int>>(0))
-, _engineMutex(std::make_shared<std::shared_mutex>()) {
+, _mutex(std::make_shared<std::mutex>()) {
 
 	// This is not perfectly safe, but should be mostly fine.
 	static const auto UtfInitializer = LoadUtfInitializer();
@@ -326,7 +326,7 @@ HunspellService::HunspellService()
 
 // Thread: Main.
 HunspellService::~HunspellService() {
-	std::unique_lock lock(*_engineMutex);
+	std::unique_lock lock(*_mutex);
 }
 
 // Thread: Main.
@@ -344,7 +344,7 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 	const auto savedEpoch = _epoch.get()->load();
 	crl::async([=,
 		epoch = _epoch,
-		engineMutex = _engineMutex,
+		mutex = _mutex,
 		engines = _engines] {
 		using UniqueEngine = std::unique_ptr<HunspellEngine>;
 
@@ -361,7 +361,7 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 		};
 
 		const auto missedLangs = [&] {
-			std::shared_lock lock(*engineMutex);
+			std::unique_lock lock(*mutex);
 
 			return ranges::views::all(
 				langs
@@ -389,7 +389,7 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 		}
 
 		{
-			std::unique_lock lock(*engineMutex);
+			std::unique_lock lock(*mutex);
 
 			*engines = ranges::views::concat(
 				*engines, localEngines
@@ -419,13 +419,15 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 // Thread: Any.
 bool HunspellService::checkSpelling(const QString &wordToCheck) {
 	const auto wordScript = ::Spellchecker::WordScript(wordToCheck);
-	if (ranges::contains(_ignoredWords[wordScript], wordToCheck)) {
+	std::unique_lock lock(*_mutex);
+	const auto isCustomWord = [&](const WordsMap &words) {
+		const auto i = words.find(wordScript);
+		return (i != end(words))
+			&& ranges::contains(i->second, wordToCheck);
+	};
+	if (isCustomWord(_ignoredWords) || isCustomWord(_addedWords)) {
 		return true;
 	}
-	if (ranges::contains(_addedWords[wordScript], wordToCheck)) {
-		return true;
-	}
-	std::shared_lock lock(*_engineMutex);
 	for (const auto &engine : *_engines) {
 		if (wordScript != engine->script()) {
 			continue;
@@ -444,22 +446,22 @@ void HunspellService::fillSuggestionList(
 	std::vector<QString> *optionalSuggestions) {
 	const auto wordScript = ::Spellchecker::WordScript(wrongWord);
 
-	const auto customGuesses = _customDict->suggest(wrongWord.toStdString());
-	*optionalSuggestions = ranges::views::all(
-		customGuesses
-	) | ranges::views::take(
-		kMaxSuggestions
-	) | ranges::views::transform([](auto &guess) {
-		return QString::fromStdString(guess);
-	}) | ranges::to_vector;
-
-	const auto startTime = crl::now();
-
 	_suggestionsEpoch++;
 	const auto savedEpoch = _suggestionsEpoch.load();
 
 	{
-		std::shared_lock lock(*_engineMutex);
+		std::unique_lock lock(*_mutex);
+		const auto customGuesses = _customDict->suggest(
+			wrongWord.toStdString());
+		*optionalSuggestions = ranges::views::all(
+			customGuesses
+		) | ranges::views::take(
+			kMaxSuggestions
+		) | ranges::views::transform([](auto &guess) {
+			return QString::fromStdString(guess);
+		}) | ranges::to_vector;
+
+		const auto startTime = crl::now();
 		for (const auto &engine : *_engines) {
 			if (_suggestionsEpoch.load() > savedEpoch) {
 				// There is a newer request to fill suggestion list,
@@ -482,6 +484,7 @@ void HunspellService::fillSuggestionList(
 
 // Thread: Main.
 void HunspellService::ignoreWord(const QString &word) {
+	std::unique_lock lock(*_mutex);
 	const auto wordScript = ::Spellchecker::WordScript(word);
 	_customDict->add(word.toStdString());
 	_ignoredWords[wordScript].push_back(word);
@@ -489,11 +492,13 @@ void HunspellService::ignoreWord(const QString &word) {
 
 // Thread: Main.
 bool HunspellService::isWordInDictionary(const QString &word) {
+	std::unique_lock lock(*_mutex);
 	return ranges::contains(addedWords(word), word);
 }
 
 // Thread: Main.
 void HunspellService::addWord(const QString &word) {
+	std::unique_lock lock(*_mutex);
 	const auto count = ranges::accumulate(
 		ranges::views::values(_addedWords),
 		0,
@@ -509,13 +514,14 @@ void HunspellService::addWord(const QString &word) {
 
 // Thread: Main.
 void HunspellService::removeWord(const QString &word) {
+	std::unique_lock lock(*_mutex);
 	_customDict->remove(word.toStdString());
 	auto &vector = addedWords(word);
 	vector.erase(ranges::remove(vector, word), end(vector));
 	writeToFile();
 }
 
-// Thread: Main.
+// Thread: Main. Must be called with _mutex held.
 void HunspellService::writeToFile() {
 	auto f = QFile(CustomDictionaryPath());
 	if (!f.open(QIODevice::WriteOnly)) {
@@ -531,7 +537,7 @@ void HunspellService::writeToFile() {
 	f.close();
 }
 
-// Thread: Main.
+// Thread: Any. Called only from the constructor.
 void HunspellService::readFile() {
 	using namespace ::Spellchecker;
 
