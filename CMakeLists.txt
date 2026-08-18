@@ -53,6 +53,7 @@ PRIVATE
     spellcheck/platform/win/spellcheck_win.h
     spellcheck/platform/platform_language.h
     spellcheck/platform/platform_spellcheck.h
+    spellcheck/platform/platform_spellcheck_async.cpp
     spellcheck/third_party/language_cld3.cpp
     spellcheck/third_party/language_cld3.h
     spellcheck/third_party/hunspell_controller.cpp

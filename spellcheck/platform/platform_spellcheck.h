@@ -33,4 +33,10 @@ void CheckSpellingText(
 
 void UpdateLanguages(std::vector<int> languages);
 
+void CheckSpelling(QString word, FnMut<void(bool correct)> callback);
+void CheckSpellingText(QString text, FnMut<void(MisspelledWords &&)> callback);
+void LookupWord(
+	QString word,
+	FnMut<void(bool correct, std::vector<QString> &&suggestions)> callback);
+
 } // namespace Platform::Spellchecker
