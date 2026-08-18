@@ -10,6 +10,9 @@
 #include <QtCore/QStringList>
 #include <QTextBoundaryFinder>
 
+#include <memory>
+#include <mutex>
+
 namespace Spellchecker {
 namespace {
 
@@ -20,8 +23,17 @@ struct SubtagScript {
 
 // https://chromium.googlesource.com/chromium/src/+/refs/heads/master/third_party/blink/renderer/platform/text/locale_to_script_mapping.cc
 
-std::vector<QChar::Script> SupportedScripts;
+using ScriptsList = std::vector<QChar::Script>;
+
+// Immutable snapshot, read from async word checks.
+std::mutex SupportedScriptsMutex;
+auto SupportedScripts = std::make_shared<const ScriptsList>();
 rpl::event_stream<> SupportedScriptsEventStream;
+
+[[nodiscard]] std::shared_ptr<const ScriptsList> SupportedScriptsSnapshot() {
+	std::lock_guard lock(SupportedScriptsMutex);
+	return SupportedScripts;
+}
 
 constexpr auto kFactor = 1000;
 
@@ -231,9 +243,11 @@ bool IsWordSkippable(QStringView word, bool checkSupportedScripts) {
 		return true;
 	}
 	const auto wordScript = WordScript(word);
-	if (checkSupportedScripts
-		&& !ranges::contains(SupportedScripts, wordScript)) {
-		return true;
+	if (checkSupportedScripts) {
+		const auto scripts = SupportedScriptsSnapshot();
+		if (!ranges::contains(*scripts, wordScript)) {
+			return true;
+		}
 	}
 	return ranges::any_of(word, [&](QChar c) {
 		return (c.script() != wordScript)
@@ -245,13 +259,18 @@ bool IsWordSkippable(QStringView word, bool checkSupportedScripts) {
 
 void UpdateSupportedScripts(std::vector<QString> languages) {
 	// It should be called at least once from Platform::Spellchecker::Init().
-	SupportedScripts = ranges::views::all(
+	auto scripts = ranges::views::all(
 		languages
 	) | ranges::views::transform(
 		LocaleToScriptCode
 	) | ranges::views::unique | ranges::views::filter(
 		IsSpellcheckableScripts
 	) | ranges::to_vector;
+	{
+		std::lock_guard lock(SupportedScriptsMutex);
+		SupportedScripts = std::make_shared<const ScriptsList>(
+			std::move(scripts));
+	}
 	SupportedScriptsEventStream.fire({});
 }
 
