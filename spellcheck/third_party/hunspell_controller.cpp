@@ -405,30 +405,52 @@ std::vector<QString> HunspellService::lookupSuggestions(
 	const auto wordScript = ::Spellchecker::WordScript(wrongWord);
 
 	const auto customGuesses = _customDict->suggest(wrongWord.toStdString());
-	auto result = ranges::views::all(
+	auto sources = std::vector<std::vector<QString>>();
+	sources.push_back(ranges::views::all(
 		customGuesses
 	) | ranges::views::take(
 		kMaxSuggestions
 	) | ranges::views::transform([](auto &guess) {
 		return QString::fromStdString(guess);
-	}) | ranges::to_vector;
+	}) | ranges::to_vector);
 
 	const auto startTime = crl::now();
 	for (const auto &engine : _engines) {
 		if (LookupGeneration.load() != generation) {
 			// There is a newer request to fill the suggestion list,
 			// so we should drop the current one.
-			result.clear();
-			break;
+			return {};
 		}
-		if (result.size() == kMaxSuggestions
-			|| ((crl::now() - startTime) > kTimeLimitSuggestion)) {
+		if ((crl::now() - startTime) > kTimeLimitSuggestion) {
 			break;
 		}
 		if (wordScript != engine->script()) {
 			continue;
 		}
-		engine->suggest(wrongWord, &result);
+		auto list = std::vector<QString>();
+		engine->suggest(wrongWord, &list);
+		sources.push_back(std::move(list));
+	}
+
+	// Round-robin so one language doesn't starve the others.
+	auto result = std::vector<QString>();
+	for (auto index = 0;; ++index) {
+		auto any = false;
+		for (const auto &source : sources) {
+			if (index >= int(source.size())) {
+				continue;
+			}
+			any = true;
+			if (!ranges::contains(result, source[index])) {
+				result.push_back(source[index]);
+				if (result.size() == kMaxSuggestions) {
+					return result;
+				}
+			}
+		}
+		if (!any) {
+			break;
+		}
 	}
 	return result;
 }
