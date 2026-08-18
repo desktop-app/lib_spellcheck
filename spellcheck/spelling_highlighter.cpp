@@ -471,6 +471,12 @@ bool SpellingHighlighter::isSkippableWord(int position, int length) {
 }
 
 void SpellingHighlighter::checkCurrentText() {
+	_lastPosition = 0;
+	_addedSymbols = 0;
+	_removedSymbols = 0;
+	if (_coldSpellcheckingTimer.isActive()) {
+		_coldSpellcheckingTimer.cancel();
+	}
 	if (document()->isEmpty()) {
 		_cachedRanges.clear();
 		return;
