@@ -567,12 +567,16 @@ void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
 	crl::async([=,
 		w = std::move(w),
 		singleWord = std::move(singleWord)]() mutable {
-		if (Platform::Spellchecker::CheckSpelling(std::move(w))) {
+		if (Platform::Spellchecker::CheckSpelling(w)) {
 			return;
 		}
 
 		crl::on_main(weak, [=,
+				w = std::move(w),
 				singleWord = std::move(singleWord)]() mutable {
+			if (compareDocumentText(w, singleWord.first, singleWord.second)) {
+				return;
+			}
 			const auto posOfWord = singleWord.first;
 			ranges::insert(
 				_cachedRanges,
