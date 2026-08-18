@@ -497,6 +497,11 @@ void HunspellService::removeWord(const QString &word) {
 }
 
 void HunspellService::writeToFile() {
+	const auto dir = ::Spellchecker::WorkingDirPath();
+	if (dir.isEmpty()) {
+		return;
+	}
+	QDir().mkpath(dir);
 	auto body = QByteArray();
 	for (const auto &[script, words] : _addedWords) {
 		for (const auto &word : words) {

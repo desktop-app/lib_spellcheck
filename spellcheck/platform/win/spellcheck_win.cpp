@@ -426,23 +426,22 @@ void FillSuggestionList(
 }
 
 void AddWord(const QString &word) {
-	if (!IsSystemSpellchecker()) {
-		ThirdParty::AddWord(word);
-		return;
+	// ISpellChecker can't report added words, so we track them ourselves.
+	ThirdParty::AddWord(word);
+	if (IsSystemSpellchecker()) {
+		SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
+			instance.addWord(Q2WString(word));
+		});
 	}
-	SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
-		instance.addWord(Q2WString(word));
-	});
 }
 
 void RemoveWord(const QString &word) {
-	if (!IsSystemSpellchecker()) {
-		ThirdParty::RemoveWord(word);
-		return;
+	ThirdParty::RemoveWord(word);
+	if (IsSystemSpellchecker()) {
+		SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
+			instance.removeWord(Q2WString(word));
+		});
 	}
-	SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
-		instance.removeWord(Q2WString(word));
-	});
 }
 
 void IgnoreWord(const QString &word) {
@@ -456,11 +455,7 @@ void IgnoreWord(const QString &word) {
 }
 
 bool IsWordInDictionary(const QString &wordToCheck) {
-	if (!IsSystemSpellchecker()) {
-		return ThirdParty::IsWordInDictionary(wordToCheck);
-	}
-	// ISpellChecker can't check if a word is in the dictionary.
-	return false;
+	return ThirdParty::IsWordInDictionary(wordToCheck);
 }
 
 void UpdateLanguages(std::vector<int> languages) {
