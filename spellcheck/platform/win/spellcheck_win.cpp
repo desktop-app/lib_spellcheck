@@ -16,6 +16,12 @@
 #include <QtCore/QLocale>
 #include <QVector>
 
+#include <condition_variable>
+#include <deque>
+#include <future>
+#include <mutex>
+#include <thread>
+
 using namespace Microsoft::WRL;
 
 namespace Platform::Spellchecker {
@@ -46,8 +52,8 @@ constexpr auto kChunk = 5000;
 
 // WindowsSpellChecker class is used to store all the COM objects and
 // control their lifetime. The class also provides wrappers for
-// ISpellCheckerFactory and ISpellChecker APIs. All COM calls are on the
-// background thread.
+// ISpellCheckerFactory and ISpellChecker APIs. All calls run on the
+// dedicated COM thread below.
 class WindowsSpellChecker {
 public:
 	WindowsSpellChecker();
@@ -314,21 +320,66 @@ void WindowsSpellChecker::chunkedCheckSpellingText(
 
 ////// End of WindowsSpellChecker class.
 
-WindowsSpellChecker &SharedSpellChecker() {
-	static auto spellchecker = WindowsSpellChecker();
-	return spellchecker;
+// ISpellChecker is not thread-safe, so it lives on one COM apartment.
+class ComThread final {
+public:
+	ComThread() : _thread([this] { run(); }) {
+	}
+
+	~ComThread() {
+		_thread.detach();
+	}
+
+	void post(FnMut<void(WindowsSpellChecker&)> task) {
+		auto lock = std::unique_lock(_mutex);
+		_tasks.push_back(std::move(task));
+		lock.unlock();
+		_condition.notify_one();
+	}
+
+	void syncRun(Fn<void(WindowsSpellChecker&)> task) {
+		auto promise = std::promise<void>();
+		auto future = promise.get_future();
+		post([&](WindowsSpellChecker &instance) {
+			task(instance);
+			promise.set_value();
+		});
+		future.get();
+	}
+
+private:
+	void run() {
+		CoInitializeEx(
+			nullptr,
+			COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
+		auto checker = WindowsSpellChecker();
+		while (true) {
+			auto lock = std::unique_lock(_mutex);
+			_condition.wait(lock, [&] { return !_tasks.empty(); });
+			auto task = std::move(_tasks.front());
+			_tasks.pop_front();
+			lock.unlock();
+			task(checker);
+		}
+	}
+
+	std::mutex _mutex;
+	std::condition_variable _condition;
+	std::deque<FnMut<void(WindowsSpellChecker&)>> _tasks;
+	std::thread _thread;
+
+};
+
+ComThread &SpellCheckerThread() {
+	static auto thread = ComThread();
+	return thread;
 }
 
 } // namespace
 
-// TODO: Add a better work with the Threading Models.
-// All COM objects should be created asynchronously
-// if we want to work with them asynchronously.
-// Some calls can be made in the main thread before spellchecking
-// (e.g. KnownLanguages), so we have to init it asynchronously first.
 void Init() {
 	if (IsSystemSpellchecker()) {
-		crl::async(SharedSpellChecker);
+		SpellCheckerThread();
 	}
 }
 
@@ -339,63 +390,77 @@ bool IsSystemSpellchecker() {
 }
 
 std::vector<QString> ActiveLanguages() {
-	if (IsSystemSpellchecker()) {
-		return SharedSpellChecker().systemLanguages();
+	if (!IsSystemSpellchecker()) {
+		return ThirdParty::ActiveLanguages();
 	}
-	return ThirdParty::ActiveLanguages();
+	auto result = std::vector<QString>();
+	SpellCheckerThread().syncRun([&](WindowsSpellChecker &instance) {
+		result = instance.systemLanguages();
+	});
+	return result;
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
 	if (!IsSystemSpellchecker()) {
 		return ThirdParty::CheckSpelling(wordToCheck);
 	}
-	return SharedSpellChecker().checkSpelling(Q2WString(wordToCheck));
+	auto result = false;
+	SpellCheckerThread().syncRun([&](WindowsSpellChecker &instance) {
+		result = instance.checkSpelling(Q2WString(wordToCheck));
+	});
+	return result;
 }
 
 void FillSuggestionList(
 		const QString &wrongWord,
 		std::vector<QString> *optionalSuggestions) {
-	if (IsSystemSpellchecker()) {
-		SharedSpellChecker().fillSuggestionList(
-			Q2WString(wrongWord),
-			optionalSuggestions);
+	if (!IsSystemSpellchecker()) {
+		ThirdParty::FillSuggestionList(wrongWord, optionalSuggestions);
 		return;
 	}
-	ThirdParty::FillSuggestionList(
-		wrongWord,
-		optionalSuggestions);
+	SpellCheckerThread().syncRun([&](WindowsSpellChecker &instance) {
+		instance.fillSuggestionList(
+			Q2WString(wrongWord),
+			optionalSuggestions);
+	});
 }
 
 void AddWord(const QString &word) {
-	if (IsSystemSpellchecker()) {
-		SharedSpellChecker().addWord(Q2WString(word));
-	} else {
+	if (!IsSystemSpellchecker()) {
 		ThirdParty::AddWord(word);
+		return;
 	}
+	SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
+		instance.addWord(Q2WString(word));
+	});
 }
 
 void RemoveWord(const QString &word) {
-	if (IsSystemSpellchecker()) {
-		SharedSpellChecker().removeWord(Q2WString(word));
-	} else {
+	if (!IsSystemSpellchecker()) {
 		ThirdParty::RemoveWord(word);
+		return;
 	}
+	SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
+		instance.removeWord(Q2WString(word));
+	});
 }
 
 void IgnoreWord(const QString &word) {
-	if (IsSystemSpellchecker()) {
-		SharedSpellChecker().ignoreWord(Q2WString(word));
-	} else {
+	if (!IsSystemSpellchecker()) {
 		ThirdParty::IgnoreWord(word);
+		return;
 	}
+	SpellCheckerThread().post([word](WindowsSpellChecker &instance) {
+		instance.ignoreWord(Q2WString(word));
+	});
 }
 
 bool IsWordInDictionary(const QString &wordToCheck) {
-	if (IsSystemSpellchecker()) {
-		// ISpellChecker can't check if a word is in the dictionary.
-		return false;
+	if (!IsSystemSpellchecker()) {
+		return ThirdParty::IsWordInDictionary(wordToCheck);
 	}
-	return ThirdParty::IsWordInDictionary(wordToCheck);
+	// ISpellChecker can't check if a word is in the dictionary.
+	return false;
 }
 
 void UpdateLanguages(std::vector<int> languages) {
@@ -403,10 +468,10 @@ void UpdateLanguages(std::vector<int> languages) {
 		ThirdParty::UpdateLanguages(languages);
 		return;
 	}
-	crl::async([=] {
-		const auto result = ActiveLanguages();
-		crl::on_main([=] {
-			::Spellchecker::UpdateSupportedScripts(result);
+	SpellCheckerThread().post([](WindowsSpellChecker &instance) {
+		auto result = instance.systemLanguages();
+		crl::on_main([result = std::move(result)]() mutable {
+			::Spellchecker::UpdateSupportedScripts(std::move(result));
 		});
 	});
 }
@@ -414,29 +479,28 @@ void UpdateLanguages(std::vector<int> languages) {
 void CheckSpellingText(
 		const QString &text,
 		MisspelledWords *misspelledWords) {
-	if (IsSystemSpellchecker()) {
-		// There are certain strings with a lot of 'paragraph separators'
-		// that crash the native Windows spellchecker. We replace them
-		// with spaces (no difference for the checking), they don't crash.
-		const auto check = QString(text).replace(QChar(8233), QChar(32));
+	if (!IsSystemSpellchecker()) {
+		ThirdParty::CheckSpellingText(text, misspelledWords);
+		return;
+	}
+	// There are certain strings with a lot of 'paragraph separators'
+	// that crash the native Windows spellchecker. We replace them
+	// with spaces (no difference for the checking), they don't crash.
+	const auto check = QString(text).replace(QChar(8233), QChar(32));
+	SpellCheckerThread().syncRun([&](WindowsSpellChecker &instance) {
 		if (check.size() > kChunk) {
 			// On some versions of Windows 10,
 			// checking large text with specific characters (e.g. @)
 			// will throw the std::regex_error::error_complexity exception,
 			// so we have to split the text.
-			SharedSpellChecker().chunkedCheckSpellingText(
-				check,
-				misspelledWords);
+			instance.chunkedCheckSpellingText(check, misspelledWords);
 		} else {
-			SharedSpellChecker().checkSpellingText(
+			instance.checkSpellingText(
 				(LPCWSTR)check.utf16(),
 				misspelledWords,
 				0);
 		}
-
-		return;
-	}
-	ThirdParty::CheckSpellingText(text, misspelledWords);
+	});
 }
 
 } // namespace Platform::Spellchecker
