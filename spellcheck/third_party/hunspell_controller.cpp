@@ -13,9 +13,13 @@
 
 #include <atomic>
 #include <future>
+#include <optional>
 
 #include <QDir>
 #include <QFileInfo>
+#include <QSaveFile>
+
+#include <xxhash.h>
 
 #include <hunspell/hunspell.hxx>
 
@@ -41,6 +45,8 @@ const auto kLineBreak = QByteArrayLiteral("\r\n");
 #else // Q_OS_WIN
 const auto kLineBreak = QByteArrayLiteral("\n");
 #endif // Q_OS_WIN
+
+const auto kChecksumPrefix = QByteArrayLiteral("checksum_v1 = ");
 
 std::vector<QString> ActiveLanguagesMirror;
 std::vector<QString> AddedWordsMirror;
@@ -76,6 +82,38 @@ QString CustomDictionaryPath() {
 	return QStringLiteral("%1/%2").arg(
 		::Spellchecker::WorkingDirPath(),
 		"custom");
+}
+
+[[nodiscard]] quint64 CountChecksum(const QByteArray &data) {
+	return XXH64(data.constData(), data.size(), 0);
+}
+
+[[nodiscard]] QByteArray ReadRawFile(const QString &path) {
+	auto f = QFile(path);
+	if (const auto info = QFileInfo(f)
+		; !info.isFile()
+		|| (info.size() > 100 * 1024)
+		|| !f.open(QIODevice::ReadOnly)) {
+		return QByteArray();
+	}
+	return f.readAll();
+}
+
+[[nodiscard]] std::optional<QByteArray> ReadVerifiedBody(
+		const QString &path) {
+	const auto data = ReadRawFile(path);
+	const auto index = data.lastIndexOf(kChecksumPrefix);
+	if (index < 0 || (index > 0 && data[index - 1] != '\n')) {
+		return std::nullopt;
+	}
+	const auto line = data.mid(index + kChecksumPrefix.size()).trimmed();
+	auto ok = false;
+	const auto checksum = line.toULongLong(&ok, 16);
+	auto body = data.left(index);
+	if (!ok || (CountChecksum(body) != checksum)) {
+		return std::nullopt;
+	}
+	return body;
 }
 
 class CharsetConverter final {
@@ -437,36 +475,49 @@ void HunspellService::removeWord(const QString &word) {
 }
 
 void HunspellService::writeToFile() {
-	auto f = QFile(CustomDictionaryPath());
+	auto body = QByteArray();
+	for (const auto &[script, words] : _addedWords) {
+		for (const auto &word : words) {
+			body += word.toUtf8() + kLineBreak;
+		}
+	}
+	const auto full = body
+		+ kChecksumPrefix
+		+ QByteArray::number(qulonglong(CountChecksum(body)), 16)
+		+ kLineBreak;
+	{
+		auto backup = QFile(CustomDictionaryPath() + u".backup"_q);
+		if (backup.open(QIODevice::WriteOnly)) {
+			backup.write(full);
+		}
+	}
+	auto f = QSaveFile(CustomDictionaryPath());
 	if (!f.open(QIODevice::WriteOnly)) {
 		return;
 	}
-	auto &&temp = ranges::views::join(
-		ranges::views::values(_addedWords)
-	) | ranges::views::transform([&](auto &str) {
-		return str + kLineBreak;
-	});
-	const auto result = ranges::accumulate(std::move(temp), QString{});
-	f.write(result.toUtf8());
-	f.close();
+	f.write(full);
+	f.commit();
 }
 
 void HunspellService::readFile() {
 	using namespace ::Spellchecker;
 
-	auto f = QFile(CustomDictionaryPath());
-
-	if (const auto info = QFileInfo(f);
-		!info.isFile()
-		|| (info.size() > 100 * 1024)
-		|| !f.open(QIODevice::ReadOnly)) {
-		if (info.isDir()) {
-			QDir(info.absoluteFilePath()).removeRecursively();
-		}
+	const auto path = CustomDictionaryPath();
+	if (const auto info = QFileInfo(path); info.isDir()) {
+		QDir(info.absoluteFilePath()).removeRecursively();
 		return;
 	}
-	const auto data = f.readAll();
-	f.close();
+	auto dirty = false;
+	auto data = QByteArray();
+	if (auto verified = ReadVerifiedBody(path)) {
+		data = std::move(*verified);
+	} else if (auto backup = ReadVerifiedBody(path + u".backup"_q)) {
+		data = std::move(*backup);
+		dirty = true;
+	} else {
+		data = ReadRawFile(path);
+		dirty = !data.isEmpty();
+	}
 	if (data.isEmpty()) {
 		return;
 	}
@@ -490,6 +541,9 @@ void HunspellService::readFile() {
 		}
 		_customDict->add(word.toStdString());
 		_addedWords[WordScript(word)].push_back(std::move(word));
+	}
+	if (dirty) {
+		writeToFile();
 	}
 
 	auto loaded = ranges::views::all(
