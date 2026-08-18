@@ -404,7 +404,6 @@ void HunspellService::updateLanguages(std::vector<QString> langs) {
 			if (savedEpoch != epoch.get()->load()) {
 				return;
 			}
-			*epoch = 0;
 			_activeLanguages = ranges::views::all(
 				*engines
 			) | ranges::views::transform(&HunspellEngine::lang)
