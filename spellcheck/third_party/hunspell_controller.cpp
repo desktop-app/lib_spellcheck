@@ -70,27 +70,13 @@ QString CustomDictionaryPath() {
 		"custom");
 }
 
-[[nodiscard]] Hunspell LoadUtfInitializer() {
-	const auto full = [&](const QString &name) {
-		return ::Spellchecker::WorkingDirPath() + '/' + name;
-	};
-	const auto aff = full(u"utf_helper.aff"_q);
-	const auto dic = full(u"utf_helper.dic"_q);
-	if (!QFile::exists(aff)) {
-		QDir().mkpath(::Spellchecker::WorkingDirPath());
-		auto f = QFile(aff);
-		if (f.open(QIODevice::WriteOnly)) {
-			f.write("SET UTF-8" + kLineBreak);
-		}
-	}
-	if (!QFile::exists(dic)) {
-		auto f = QFile(dic);
-		if (f.open(QIODevice::WriteOnly)) {
-			f.write("1" + kLineBreak + "Zzz" + kLineBreak);
-		}
-	}
-	const auto prepared = PreparePaths(aff, dic);
-	return Hunspell(prepared.aff.constData(), prepared.dic.constData());
+// Older hunspell versions (before 1.7.3, e.g. a system-provided one)
+// keep a global refcounted UTF table that is initialized and freed by
+// dictionary constructors and destructors, so their lifetime is
+// serialized with this mutex.
+[[nodiscard]] std::mutex &EngineLifetimeMutex() {
+	static auto mutex = std::mutex();
+	return mutex;
 }
 
 class CharsetConverter final {
@@ -184,7 +170,7 @@ private:
 class HunspellEngine {
 public:
 	HunspellEngine(const QString &lang);
-	~HunspellEngine() = default;
+	~HunspellEngine();
 
 	bool isValid() const;
 
@@ -263,14 +249,25 @@ HunspellEngine::HunspellEngine(const QString &lang)
 		return;
 	}
 	const auto prepared = PreparePaths(affPath, dicPath);
-	_hunspell = std::make_unique<Hunspell>(
-		prepared.aff.constData(),
-		prepared.dic.constData());
+	{
+		std::lock_guard lock(EngineLifetimeMutex());
+		_hunspell = std::make_unique<Hunspell>(
+			prepared.aff.constData(),
+			prepared.dic.constData());
+	}
 
 	_converter = std::make_unique<CharsetConverter>(
 		_hunspell->get_dic_encoding());
 	if (!_converter->isValid()) {
+		std::lock_guard lock(EngineLifetimeMutex());
 		_hunspell.reset();
+	}
+}
+
+HunspellEngine::~HunspellEngine() {
+	if (_hunspell) {
+		std::lock_guard lock(EngineLifetimeMutex());
+		_hunspell = nullptr;
 	}
 }
 
@@ -318,8 +315,11 @@ HunspellService::HunspellService()
 , _epoch(std::make_shared<std::atomic<int>>(0))
 , _mutex(std::make_shared<std::mutex>()) {
 
-	// This is not perfectly safe, but should be mostly fine.
-	static const auto UtfInitializer = LoadUtfInitializer();
+	// Remove the helper files of the old UTF table workaround.
+	if (const auto dir = ::Spellchecker::WorkingDirPath(); !dir.isEmpty()) {
+		QFile::remove(dir + u"/utf_helper.aff"_q);
+		QFile::remove(dir + u"/utf_helper.dic"_q);
+	}
 
 	readFile();
 }
