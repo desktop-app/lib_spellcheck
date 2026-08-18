@@ -439,5 +439,4 @@ void CheckSpellingText(
 	ThirdParty::CheckSpellingText(text, misspelledWords);
 }
 
-
 } // namespace Platform::Spellchecker

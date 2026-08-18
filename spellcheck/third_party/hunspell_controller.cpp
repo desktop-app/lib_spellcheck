@@ -542,7 +542,7 @@ void HunspellService::readFile() {
 		|| (info.size() > 100 * 1024)
 		|| !f.open(QIODevice::ReadOnly)) {
 		if (info.isDir()) {
-			QDir(info.path()).removeRecursively();
+			QDir(info.absoluteFilePath()).removeRecursively();
 		}
 		return;
 	}
@@ -599,12 +599,10 @@ void HunspellService::readFile() {
 
 ////// End of HunspellService class.
 
-
 HunspellService &SharedSpellChecker() {
 	static auto spellchecker = HunspellService();
 	return spellchecker;
 }
-
 
 } // namespace
 
