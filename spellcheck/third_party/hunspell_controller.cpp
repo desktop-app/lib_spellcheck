@@ -556,49 +556,26 @@ void HunspellService::readFile() {
 		return;
 	}
 
-	// {"a", "1", "β"};
-	auto splitedWords = QString::fromUtf8(data).split(kLineBreak)
+	auto splitedWords = QString::fromUtf8(data).replace(
+		QChar('\r'),
+		QChar('\n')
+	).split(QChar('\n'), Qt::SkipEmptyParts)
 		| ranges::to_vector
 		| ranges::actions::sort
 		| ranges::actions::unique;
 
-	auto filteredWords = (
-		splitedWords
-	) | ranges::views::filter([](auto &word) {
+	auto count = 0;
+	for (auto &word : splitedWords) {
 		// Ignore words with mixed scripts or non-words characters.
-		return !word.isEmpty() && !IsWordSkippable(word, false);
-	}) | ranges::views::take(
-		kMaxSyncableDictionaryWords
-	) | ranges::views::transform([](auto &word) {
-		return std::move(word);
-	}) | ranges::to_vector;
-
-	ranges::for_each(filteredWords, [&](auto &word) {
+		if (IsWordSkippable(word, false)) {
+			continue;
+		}
+		if (++count > kMaxSyncableDictionaryWords) {
+			break;
+		}
 		_customDict->add(word.toStdString());
-	});
-
-	// {{"a"}, {"β"}};
-	auto groupedWords = ranges::views::all(
-		filteredWords
-	) | ranges::views::chunk_by([](auto &a, auto &b) {
-		return WordScript(a) == WordScript(b);
-	}) | ranges::views::transform([](auto &&rng) {
-		return rng | ranges::to_vector;
-	}) | ranges::to_vector;
-
-	// {QChar::Script_Latin, QChar::Script_Greek};
-	auto scripts = ranges::views::all(
-		groupedWords
-	) | ranges::views::transform([](auto &vector) {
-		return WordScript(vector.front());
-	}) | ranges::to_vector;
-
-	// {QChar::Script_Latin : {"a"}, QChar::Script_Greek : {"β"}};
-	auto &&zip = ranges::views::zip(
-		scripts, groupedWords
-	);
-	_addedWords = zip | ranges::to<WordsMap>();
-
+		_addedWords[WordScript(word)].push_back(std::move(word));
+	}
 }
 
 ////// End of HunspellService class.
