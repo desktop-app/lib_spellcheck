@@ -17,7 +17,9 @@ LanguageId Recognize(QStringView text) {
 	constexpr auto kMaxNumBytes = 1000;
 	constexpr auto kMaxLangs = 3;
 
-	auto lang_id = NNetLanguageIdentifier(kMinNumBytes, kMaxNumBytes);
+	static thread_local auto lang_id = NNetLanguageIdentifier(
+		kMinNumBytes,
+		kMaxNumBytes);
 	const auto string = text.toUtf8().toStdString();
 	const auto results = lang_id.FindTopNMostFreqLangs(string, kMaxLangs);
 
