@@ -619,21 +619,28 @@ void SpellingHighlighter::highlightBlock(const QString &text) {
 	if (_cachedRanges.empty() || !_enabled || text.isEmpty()) {
 		return;
 	}
-	const auto entities = FindEntities(text);
 	const auto bPos = currentBlock().position();
 	const auto bLen = currentBlock().length();
-	ranges::for_each((
+
+	auto blockRanges = ranges::views::all(
 		_cachedRanges
 	// Skip the all words outside the current block.
 	) | ranges::views::filter([&](const auto &range) {
 		return IntersectsWordRanges(range, bPos, bLen);
-	}), [&](const auto &range) {
+	}) | ranges::to_vector;
+	if (blockRanges.empty()) {
+		setCurrentBlockState(0);
+		return;
+	}
+
+	const auto entities = FindEntities(text);
+	for (const auto &range : blockRanges) {
 		const auto posInBlock = range.first - bPos;
 		if (IntersectsAnyOfEntities(posInBlock, range.second, entities)) {
-			return;
+			continue;
 		}
 		setFormat(posInBlock, range.second, _misspelledFormat);
-	});
+	}
 
 	setCurrentBlockState(0);
 }
