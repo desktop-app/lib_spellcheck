@@ -20,6 +20,8 @@ bool IsWordSkippable(
 	QStringView word,
 	bool checkSupportedScripts = true);
 
+[[nodiscard]] QString NormalizeApostrophes(const QString &word);
+
 MisspelledWords RangesFromText(
 	const QString &text,
 	Fn<bool(const QString &word)> filterCallback);

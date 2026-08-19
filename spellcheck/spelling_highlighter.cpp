@@ -559,7 +559,8 @@ void SpellingHighlighter::invokeCheckText(
 
 void SpellingHighlighter::checkSingleWord(const MisspelledWord &singleWord) {
 	const auto weak = base::make_weak(this);
-	auto w = partDocumentText(singleWord.first, singleWord.second);
+	auto w = NormalizeApostrophes(
+		partDocumentText(singleWord.first, singleWord.second));
 	if (isSkippableWord(singleWord)) {
 		return;
 	}
@@ -847,7 +848,8 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 		return;
 	}
 
-	const auto word = cursorForPosition.selectedText();
+	const auto word = NormalizeApostrophes(
+		cursorForPosition.selectedText());
 
 	auto fillMenu = [
 		=,

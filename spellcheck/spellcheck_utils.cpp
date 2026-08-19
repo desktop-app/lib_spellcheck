@@ -43,6 +43,10 @@ constexpr auto kAcuteAccentChars = {
 	QChar(758),	QChar(791),	QChar(719),
 };
 
+// Normalize U+2019 to U+0027 so "don't" is one token (same length).
+constexpr auto kApostrophe = QChar(0x0027);
+constexpr auto kTypographicApostrophe = QChar(0x2019);
+
 constexpr auto kUnspellcheckableScripts = {
 	QChar::Script_Katakana,
 	QChar::Script_Han,
@@ -252,7 +256,8 @@ bool IsWordSkippable(QStringView word, bool checkSupportedScripts) {
 	return ranges::any_of(word, [&](QChar c) {
 		return (c.script() != wordScript)
 			&& !IsAcuteAccentChar(c)
-			&& (c.unicode() != '\'') // Patched Qt to make it a non-separator.
+			&& (c != kApostrophe) // Patched Qt to make it a non-separator.
+			&& (c != kTypographicApostrophe) // Normalized to the plain one.
 			&& (c.unicode() != '_'); // This is not a word separator.
 	});
 }
@@ -287,13 +292,17 @@ MisspelledWords RangesFromText(
 		return ranges;
 	}
 
-	auto finder = QTextBoundaryFinder(QTextBoundaryFinder::Word, text);
+	const auto normalized = NormalizeApostrophes(text);
+
+	auto finder = QTextBoundaryFinder(
+		QTextBoundaryFinder::Word,
+		normalized);
 
 	const auto isEnd = [&] {
 		return (finder.toNextBoundary() == -1);
 	};
 
-	while (finder.position() < text.length()) {
+	while (finder.position() < normalized.length()) {
 		if (!finder.boundaryReasons().testFlag(
 				QTextBoundaryFinder::StartOfItem)) {
 			if (isEnd()) {
@@ -311,7 +320,7 @@ MisspelledWords RangesFromText(
 		if (length < 1) {
 			continue;
 		}
-		if (!filterCallback(text.mid(start, length))) {
+		if (!filterCallback(normalized.mid(start, length))) {
 			ranges.push_back(std::make_pair(start, length));
 		}
 
@@ -320,6 +329,13 @@ MisspelledWords RangesFromText(
 		}
 	}
 	return ranges;
+}
+
+QString NormalizeApostrophes(const QString &word) {
+	if (!word.contains(kTypographicApostrophe)) {
+		return word;
+	}
+	return QString(word).replace(kTypographicApostrophe, kApostrophe);
 }
 
 bool CheckSkipAndSpell(const QString &word) {
