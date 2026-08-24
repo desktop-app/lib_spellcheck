@@ -497,10 +497,9 @@ void HunspellService::removeWord(const QString &word) {
 }
 
 void HunspellService::writeToFile() {
+	Expects(!::Spellchecker::WorkingDirPath().isEmpty());
+
 	const auto dir = ::Spellchecker::WorkingDirPath();
-	if (dir.isEmpty()) {
-		return;
-	}
 	QDir().mkpath(dir);
 	auto body = QByteArray();
 	for (const auto &[script, words] : _addedWords) {
@@ -527,6 +526,8 @@ void HunspellService::writeToFile() {
 }
 
 void HunspellService::readFile() {
+	Expects(!::Spellchecker::WorkingDirPath().isEmpty());
+
 	using namespace ::Spellchecker;
 
 	const auto path = CustomDictionaryPath();
