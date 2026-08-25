@@ -178,8 +178,10 @@ SpellingHighlighter::SpellingHighlighter(
 
 	_cachedRanges = MisspelledWords();
 
-	// Use the patched SpellCheckUnderline style.
-	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+	// Marked for the field to draw the mark itself: what Qt draws for
+	// SpellCheckUnderline is a plain wave, and the mark of Chrome that is
+	// wanted here used to be a patch of Qt.
+	_misspelledFormat.setProperty(Ui::InputField::kMisspelledProperty, true);
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
 		updatePalette();
