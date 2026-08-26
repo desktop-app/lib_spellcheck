@@ -6,6 +6,7 @@
 //
 #include "spellcheck/spellcheck_utils.h"
 #include "spellcheck/platform/platform_spellcheck.h"
+#include "ui/text/text.h"
 
 #include <QtCore/QStringList>
 #include <QTextBoundaryFinder>
@@ -329,6 +330,44 @@ MisspelledWords RangesFromText(
 		}
 	}
 	return ranges;
+}
+
+MisspelledWord WordAtPosition(Fn<QChar(int)> at, int length, int position) {
+	if (!length) {
+		return { 0, 0 };
+	}
+	position = std::clamp(position, 0, length);
+	const auto separator = [&](int index) {
+		return Ui::Text::IsWordSeparator(at, length, index);
+	};
+
+	// Standing inside a word means the whole of that word.
+	if (position < length && !separator(position)) {
+		auto from = position;
+		while (from > 0 && !separator(from - 1)) {
+			--from;
+		}
+		auto till = position;
+		while (till < length && !separator(till)) {
+			++till;
+		}
+		return { from, till - from };
+	}
+
+	// Standing between words means the one on the left, the way
+	// QTextCursor::WordUnderCursor answers.
+	auto till = position;
+	while (till > 0 && separator(till - 1)) {
+		--till;
+	}
+	if (!till) {
+		return { position, 0 };
+	}
+	auto from = till;
+	while (from > 0 && !separator(from - 1)) {
+		--from;
+	}
+	return { from, till - from };
 }
 
 QString NormalizeApostrophes(const QString &word) {
