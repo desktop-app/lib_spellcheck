@@ -613,9 +613,15 @@ bool SpellingHighlighter::hasUnspellcheckableTag(int begin, int length) {
 }
 
 MisspelledWord SpellingHighlighter::getWordUnderPosition(int position) {
-	_cursor.setPosition(std::clamp(position, 0, std::max(0, size() - 1)));
-	_cursor.select(QTextCursor::WordUnderCursor);
-	return RangeFromCursorSelection(_cursor);
+	const auto clamped = std::clamp(position, 0, std::max(0, size() - 1));
+	const auto block = findBlock(clamped);
+	const auto shift = block.position();
+	const auto raw = document();
+	const auto word = WordAtPosition(
+		[raw, shift](int index) { return raw->characterAt(shift + index); },
+		block.length() - 1,
+		clamped - shift);
+	return { word.first + shift, word.second };
 }
 
 void SpellingHighlighter::highlightBlock(const QString &text) {
@@ -827,7 +833,13 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 	const auto customItem = !Platform::Spellchecker::IsSystemSpellchecker()
 		&& _customContextMenuItem.has_value();
 
-	cursorForPosition.select(QTextCursor::WordUnderCursor);
+	{
+		const auto word = getWordUnderPosition(cursorForPosition.position());
+		cursorForPosition.setPosition(word.first);
+		cursorForPosition.setPosition(
+			word.first + word.second,
+			QTextCursor::KeepAnchor);
+	}
 
 	// There is no reason to call async work if the word is skippable.
 	const auto skippable = [&] {

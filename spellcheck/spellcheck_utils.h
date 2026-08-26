@@ -26,6 +26,16 @@ MisspelledWords RangesFromText(
 	const QString &text,
 	Fn<bool(const QString &word)> filterCallback);
 
+// The word the position is inside of, or the one to the left of it when the
+// position is between two words - which is what QTextCursor::WordUnderCursor
+// answers. Words are told apart by Ui::Text::IsWordSeparator(), so that a word
+// with an apostrophe in it stays one word here as well. The text is read a
+// character at a time, so that a block of a document needs no copy.
+[[nodiscard]] MisspelledWord WordAtPosition(
+	Fn<QChar(int)> at,
+	int length,
+	int position);
+
 // For Linux and macOS, which use RangesFromText.
 bool CheckSkipAndSpell(const QString &word);
 
