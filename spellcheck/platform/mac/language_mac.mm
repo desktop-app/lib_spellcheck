@@ -18,9 +18,14 @@ namespace Platform::Language {
 LanguageId Recognize(QStringView text) {
 	if (@available(macOS 10.14, *)) {
 		constexpr auto kMaxHypotheses = 3;
-		static thread_local auto r = [] {
-			return [[NLLanguageRecognizer alloc] init];
-		}();
+		struct Recognizer {
+			NLLanguageRecognizer *r = [[NLLanguageRecognizer alloc] init];
+			~Recognizer() {
+				[r release];
+			}
+		};
+		static thread_local Recognizer holder;
+		const auto r = holder.r;
 
 		[r processString:Q2NSString(text)];
 		const auto hypotheses =
