@@ -184,10 +184,8 @@ SpellingHighlighter::SpellingHighlighter(
 	_misspelledFormat.setProperty(Ui::InputField::kMisspelledProperty, true);
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
-		updatePalette();
 		rehighlight();
 	}, _lifetime);
-	updatePalette();
 
 	_field->documentContentsChanges(
 	) | rpl::on_next([=](const auto &value) {
@@ -246,10 +244,6 @@ SpellingHighlighter::SpellingHighlighter(
 			request.awaitAsyncWork(),
 			request.event->globalPos());
 	});
-}
-
-void SpellingHighlighter::updatePalette() {
-	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
 }
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
