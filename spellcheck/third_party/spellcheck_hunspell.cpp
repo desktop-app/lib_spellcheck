@@ -52,8 +52,18 @@ bool IsSystemSpellchecker() {
 	return false;
 }
 
+bool SupportsToggleDictionaries() {
+	return false;
+}
+
+std::vector<QString> AvailableLanguages() {
+	// SupportsToggleDictionaries() returns false; not supported.
+	// Maybe we can enumerate $WORKINGDIR}/$LANG/$LANG.{aff,dic}?
+	return {};
+}
+
 void UpdateLanguages(std::vector<int> languages) {
-	ThirdParty::UpdateLanguages(languages);
+	// SupportsToggleDictionaries() returns false; not supported.
 }
 
 } // namespace Platform::Spellchecker
