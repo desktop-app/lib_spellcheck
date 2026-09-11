@@ -178,14 +178,23 @@ SpellingHighlighter::SpellingHighlighter(
 
 	_cachedRanges = MisspelledWords();
 
-	// Marked for the field to draw the mark itself: what Qt draws for
-	// SpellCheckUnderline is a plain wave, and the mark of Chrome that is
-	// wanted here used to be a patch of Qt.
+#ifdef QT_SPELLCHECK_UNDERLINE_FROM_CHROME
+	_misspelledFormat.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+	style::PaletteChanged(
+	) | rpl::on_next([=] {
+		updatePalette();
+		rehighlight();
+	}, _lifetime);
+	updatePalette();
+#else // QT_SPELLCHECK_UNDERLINE_FROM_CHROME
+	// Marked for the field to draw the mark itself: what vanilla Qt draws
+	// for SpellCheckUnderline is a plain wave, not the mark of Chrome.
 	_misspelledFormat.setProperty(Ui::InputField::kMisspelledProperty, true);
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
 		rehighlight();
 	}, _lifetime);
+#endif // QT_SPELLCHECK_UNDERLINE_FROM_CHROME
 
 	_field->documentContentsChanges(
 	) | rpl::on_next([=](const auto &value) {
@@ -245,6 +254,12 @@ SpellingHighlighter::SpellingHighlighter(
 			request.event->globalPos());
 	});
 }
+
+#ifdef QT_SPELLCHECK_UNDERLINE_FROM_CHROME
+void SpellingHighlighter::updatePalette() {
+	_misspelledFormat.setUnderlineColor(st::spellUnderline->c);
+}
+#endif // QT_SPELLCHECK_UNDERLINE_FROM_CHROME
 
 void SpellingHighlighter::contentsChange(int pos, int removed, int added) {
 	if (!_enabled) {

@@ -64,6 +64,9 @@ protected:
 	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
+#ifdef QT_SPELLCHECK_UNDERLINE_FROM_CHROME
+	void updatePalette();
+#endif // QT_SPELLCHECK_UNDERLINE_FROM_CHROME
 	void setEnabled(bool enabled);
 	void checkText(const QString &text);
 	void showSpellcheckerMenu();
