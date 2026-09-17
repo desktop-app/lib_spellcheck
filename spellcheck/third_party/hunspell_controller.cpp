@@ -23,14 +23,6 @@
 
 #include <hunspell/hunspell.hxx>
 
-#if __has_include(<glib/glib.hpp>)
-#include <glib/glib.hpp>
-
-using namespace gi::repository;
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-#include <QTextCodec>
-#endif // Qt < 6.0.0
-
 namespace Platform::Spellchecker::ThirdParty {
 namespace {
 
@@ -116,94 +108,6 @@ QString CustomDictionaryPath() {
 	return body;
 }
 
-class CharsetConverter final {
-public:
-	CharsetConverter(const std::string &charset)
-	: _isUtf8(IsUtf8Name(charset))
-#if __has_include(<glib/glib.hpp>)
-	, _charset(charset)
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-	, _codec(_isUtf8 ? nullptr : QTextCodec::codecForName(charset.c_str()))
-#endif // Qt < 6.0.0
-	{}
-
-	[[nodiscard]] bool isValid() const {
-		if (_isUtf8) {
-			// QString::toStdString / fromStdString are UTF-8 on all platforms.
-			return true;
-		}
-#if __has_include(<glib/glib.hpp>)
-		const uchar empty[] = "";
-		return GLib::convert(empty, 0, _charset, "UTF-8")
-			&& GLib::convert(empty, 0, "UTF-8", _charset);
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-		return _codec;
-#else // Qt < 6.0.0
-		return false;
-#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
-	}
-
-	[[nodiscard]] std::string fromUnicode(const QString &data) {
-		if (_isUtf8) {
-			return data.toStdString();
-		}
-#if __has_include(<glib/glib.hpp>)
-		const auto utf8 = data.toStdString();
-		return GLib::convert(
-			reinterpret_cast<const uchar*>(utf8.data()),
-			utf8.size(),
-			_charset,
-			"UTF-8",
-			nullptr,
-			nullptr) | ranges::to<std::string>;
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-		return _codec->fromUnicode(data).toStdString();
-#else // Qt < 6.0.0
-		return {};
-#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
-	}
-
-	[[nodiscard]] QString toUnicode(const std::string &data) {
-		if (_isUtf8) {
-			return QString::fromStdString(data);
-		}
-#if __has_include(<glib/glib.hpp>)
-		return QString::fromStdString(GLib::convert(
-			reinterpret_cast<const uchar*>(data.data()),
-			data.size(),
-			"UTF-8",
-			_charset,
-			nullptr,
-			nullptr) | ranges::to<std::string>);
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-		return _codec->toUnicode(data.data(), data.size());
-#else // Qt < 6.0.0
-		return {};
-#endif // Qt >= 6.0.0 && !__has_include(<glib/glib.hpp>)
-	}
-
-private:
-	[[nodiscard]] static bool IsUtf8Name(const std::string &charset) {
-		auto upper = std::string();
-		upper.reserve(charset.size());
-		for (const auto ch : charset) {
-			if (ch != '-' && ch != '_') {
-				upper.push_back(std::toupper(
-					static_cast<unsigned char>(ch)));
-			}
-		}
-		return upper == "UTF8";
-	}
-
-	const bool _isUtf8 = false;
-#if __has_include(<glib/glib.hpp>)
-	std::string _charset;
-#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // __has_include(<glib/glib.hpp>)
-	QTextCodec *_codec = nullptr;
-#endif // Qt < 6.0.0
-
-};
-
 class HunspellEngine {
 public:
 	HunspellEngine(const QString &lang);
@@ -227,7 +131,6 @@ private:
 	QString _lang;
 	QChar::Script _script;
 	std::unique_ptr<Hunspell> _hunspell;
-	std::unique_ptr<CharsetConverter> _converter;
 
 };
 
@@ -280,12 +183,6 @@ HunspellEngine::HunspellEngine(const QString &lang)
 	_hunspell = std::make_unique<Hunspell>(
 		prepared.aff.constData(),
 		prepared.dic.constData());
-
-	_converter = std::make_unique<CharsetConverter>(
-		_hunspell->get_dic_encoding());
-	if (!_converter->isValid()) {
-		_hunspell = nullptr;
-	}
 }
 
 bool HunspellEngine::isValid() const {
@@ -293,19 +190,19 @@ bool HunspellEngine::isValid() const {
 }
 
 bool HunspellEngine::spell(const QString &word) const {
-	return _hunspell->spell(_converter->fromUnicode(word));
+	return _hunspell->spell(word.toStdString());
 }
 
 void HunspellEngine::suggest(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
-	const auto stdWord = _converter->fromUnicode(wrongWord);
+	const auto stdWord = wrongWord.toStdString();
 
 	for (const auto &guess : _hunspell->suggest(stdWord)) {
 		if (optionalSuggestions->size()	== kMaxSuggestions) {
 			return;
 		}
-		const auto qguess = _converter->toUnicode(guess);
+		const auto qguess = QString::fromStdString(guess);
 		if (ranges::contains(*optionalSuggestions, qguess)) {
 			continue;
 		}
