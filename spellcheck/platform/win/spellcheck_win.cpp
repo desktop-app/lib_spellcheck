@@ -70,6 +70,7 @@ public:
 		MisspelledWords *misspelledWordRanges,
 		int offset);
 	[[nodiscard]] std::vector<QString> systemLanguages();
+	[[nodiscard]] std::vector<QString> availableLanguages();
 	void chunkedCheckSpellingText(
 		QStringView textView,
 		MisspelledWords *misspelledWords);
@@ -281,6 +282,11 @@ std::vector<QString> WindowsSpellChecker::systemLanguages() {
 	return ranges::views::keys(_spellcheckerMap) | ranges::to_vector;
 }
 
+std::vector<QString> WindowsSpellChecker::availableLanguages() {
+	// SupportsToggleDictionaries() returns false; not implemented.
+	return {};
+}
+
 void WindowsSpellChecker::chunkedCheckSpellingText(
 		QStringView textView,
 		MisspelledWords *misspelledWords) {
@@ -389,6 +395,12 @@ bool IsSystemSpellchecker() {
 	return IsWindows8OrGreater();
 }
 
+bool SupportsToggleDictionaries() {
+	// Not implemented for Windows.
+	// Feasible with native spellchecker, unknown with hunspell.
+	return false;
+}
+
 std::vector<QString> ActiveLanguages() {
 	if (!IsSystemSpellchecker()) {
 		return ThirdParty::ActiveLanguages();
@@ -398,6 +410,11 @@ std::vector<QString> ActiveLanguages() {
 		result = instance.systemLanguages();
 	});
 	return result;
+}
+
+std::vector<QString> AvailableLanguages() {
+	// SupportsToggleDictionaries() returns false; not implemented.
+	return {};
 }
 
 bool CheckSpelling(const QString &wordToCheck) {
