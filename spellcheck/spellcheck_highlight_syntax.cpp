@@ -72,8 +72,7 @@ private:
 
 [[nodiscard]] const QString &LookupAlias(const QString &language) {
 	static const auto kAliases = base::flat_map<QString, QString>{
-		{ u"diff"_q, u"git"_q },
-		{ u"patch"_q, u"git"_q },
+		{ u"patch"_q, u"diff"_q },
 	};
 	const auto i = kAliases.find(language);
 	return (i != end(kAliases)) ? i->second : language;
@@ -130,18 +129,28 @@ void QueuedHighlighter::process(Request request) {
 		{ "inserted"     , 8 },
 	};
 
+	// Like prism.js themes: by type, then by alias, else as the parent.
+	const auto colorOf = [&](const Syntax &syntax, int parent) {
+		const auto i = colors.find(syntax.type());
+		if (i != end(colors)) {
+			return i->second;
+		}
+		const auto j = colors.find(syntax.alias());
+		return (j != end(colors)) ? j->second : parent;
+	};
+
 	auto offset = 0;
 	auto entities = EntitiesInText();
 	auto rebuilt = QString();
 	rebuilt.reserve(request.text.size());
 	const auto enumerate = [&](
 			const TokenList &list,
-			const std::string &type,
+			int color,
 			auto &&self) -> void {
 		for (const auto &node : list) {
 			if (node.isSyntax()) {
 				const auto &syntax = static_cast<const Syntax&>(node);
-				self(syntax.children(), syntax.type(), self);
+				self(syntax.children(), colorOf(syntax, color), self);
 			} else {
 				const auto text = static_cast<const Text&>(node).value();
 				const auto utf16 = QString::fromUtf8(
@@ -149,21 +158,18 @@ void QueuedHighlighter::process(Request request) {
 					text.size());
 				const auto length = utf16.size();
 				rebuilt.append(utf16);
-				if (!type.empty()) {
-					const auto i = colors.find(type);
-					if (i != end(colors)) {
-						entities.push_back(EntityInText(
-							EntityType::Colorized,
-							offset,
-							length,
-							QChar(ushort(i->second))));
-					}
+				if (color) {
+					entities.push_back(EntityInText(
+						EntityType::Colorized,
+						offset,
+						length,
+						QChar(ushort(color))));
 				}
 				offset += length;
 			}
 		}
 	};
-	enumerate(tokens, std::string(), enumerate);
+	enumerate(tokens, 0, enumerate);
 	const auto hash = request.hash;
 	if (offset != request.text.size()) {
 		// Something went wrong.
