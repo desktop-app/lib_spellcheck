@@ -14,11 +14,13 @@ namespace Platform::Spellchecker {
 constexpr auto kMaxSuggestions = 5;
 
 [[nodiscard]] bool IsSystemSpellchecker();
+[[nodiscard]] bool SupportsToggleDictionaries();
 [[nodiscard]] bool CheckSpelling(const QString &wordToCheck);
 [[nodiscard]] bool IsWordInDictionary(const QString &wordToCheck);
 
 void Init();
 std::vector<QString> ActiveLanguages();
+std::vector<QString> AvailableLanguages();
 void FillSuggestionList(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions);
