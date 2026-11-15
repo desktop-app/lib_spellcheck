@@ -6,6 +6,10 @@
 //
 #include "spellcheck/platform/platform_spellcheck.h"
 
+#if defined Q_OS_MACOS && !defined SPELLCHECK_HAVE_HUNSPELL
+#include "spellcheck/platform/mac/spellcheck_mac.h"
+#endif // Q_OS_MACOS && !SPELLCHECK_HAVE_HUNSPELL
+
 #ifdef SPELLCHECK_HAVE_HUNSPELL
 #include "spellcheck/third_party/hunspell_controller.h"
 #endif // SPELLCHECK_HAVE_HUNSPELL
@@ -14,7 +18,30 @@
 #include <crl/crl_on_main.h>
 
 namespace Platform::Spellchecker {
+#if !defined Q_OS_MACOS || defined SPELLCHECK_HAVE_HUNSPELL
+
+void AddWordsIfMissing(std::vector<QString> words) {
+	for (const auto &word : words) {
+		if (!IsWordInDictionary(word)) {
+			AddWord(word);
+		}
+	}
+}
+
+void IsWordInDictionary(QString word, FnMut<void(bool)> callback) {
+	callback(IsWordInDictionary(word));
+}
+
+#endif // !Q_OS_MACOS || SPELLCHECK_HAVE_HUNSPELL
+
 namespace {
+
+#if !defined Q_OS_MACOS || defined SPELLCHECK_HAVE_HUNSPELL
+template <typename Callback>
+void PostToSpellChecker(Callback &&task) {
+	crl::async(std::forward<Callback>(task));
+}
+#endif // !Q_OS_MACOS || SPELLCHECK_HAVE_HUNSPELL
 
 [[nodiscard]] bool UseThirdParty() {
 #ifdef SPELLCHECK_HAVE_HUNSPELL
@@ -33,7 +60,10 @@ void CheckSpelling(QString word, FnMut<void(bool correct)> callback) {
 		return;
 	}
 #endif // SPELLCHECK_HAVE_HUNSPELL
-	crl::async([word = std::move(word), callback = std::move(callback)]() mutable {
+	PostToSpellChecker([
+		word = std::move(word),
+		callback = std::move(callback)
+	]() mutable {
 		const auto correct = CheckSpelling(word);
 		crl::on_main([correct, callback = std::move(callback)]() mutable {
 			callback(correct);
@@ -50,7 +80,10 @@ void CheckSpellingText(
 		return;
 	}
 #endif // SPELLCHECK_HAVE_HUNSPELL
-	crl::async([text = std::move(text), callback = std::move(callback)]() mutable {
+	PostToSpellChecker([
+		text = std::move(text),
+		callback = std::move(callback)
+	]() mutable {
 		auto misspelled = MisspelledWords();
 		CheckSpellingText(text, &misspelled);
 		crl::on_main([
@@ -70,7 +103,10 @@ void LookupWord(
 		return;
 	}
 #endif // SPELLCHECK_HAVE_HUNSPELL
-	crl::async([word = std::move(word), callback = std::move(callback)]() mutable {
+	PostToSpellChecker([
+		word = std::move(word),
+		callback = std::move(callback)
+	]() mutable {
 		const auto correct = CheckSpelling(word);
 		auto suggestions = std::vector<QString>();
 		if (!correct) {

@@ -24,6 +24,7 @@ void FillSuggestionList(
 	std::vector<QString> *optionalSuggestions);
 
 void AddWord(const QString &word);
+void AddWordsIfMissing(std::vector<QString> words);
 void RemoveWord(const QString &word);
 void IgnoreWord(const QString &word);
 
@@ -35,6 +36,7 @@ void UpdateLanguages(std::vector<int> languages);
 
 void CheckSpelling(QString word, FnMut<void(bool correct)> callback);
 void CheckSpellingText(QString text, FnMut<void(MisspelledWords &&)> callback);
+void IsWordInDictionary(QString word, FnMut<void(bool)> callback);
 void LookupWord(
 	QString word,
 	FnMut<void(bool correct, std::vector<QString> &&suggestions)> callback);
