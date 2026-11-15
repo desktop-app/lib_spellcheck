@@ -12,13 +12,42 @@
 #import <AppKit/NSSpellChecker.h>
 #import <QuartzCore/QuartzCore.h>
 
+#include <crl/crl_on_main.h>
+#include <crl/crl_queue.h>
 #include <QtCore/QLocale>
 #include <set>
 
 using Platform::Q2NSString;
 using Platform::NS2QString;
 
+namespace Platform::Spellchecker {
 namespace {
+
+thread_local auto SpellCheckerTaskRunning = false;
+
+crl::queue &SpellCheckerQueue() {
+	static auto queue = crl::queue();
+	return queue;
+}
+
+template <typename Callback>
+void RunSpellCheckerTask(Callback &callback) {
+	SpellCheckerTaskRunning = true;
+	const auto reset = gsl::finally([] { SpellCheckerTaskRunning = false; });
+	@autoreleasepool {
+		callback();
+	}
+}
+
+template <typename Callback>
+void InvokeSpellChecker(Callback &&callback) {
+	// Dispatching synchronously from the spellchecker queue would deadlock.
+	if (SpellCheckerTaskRunning) {
+		callback();
+		return;
+	}
+	SpellCheckerQueue().sync([&] { RunSpellCheckerTask(callback); });
+}
 
 // +[NSSpellChecker sharedSpellChecker] can throw exceptions depending
 // on the state of the pasteboard, or possibly as a result of
@@ -34,16 +63,15 @@ NSSpellChecker *SharedSpellChecker() {
 	}
 }
 
-inline auto SystemLanguages() {
-	static auto languages = std::vector<QString>();
-	if (!languages.size()) {
+const std::vector<QString> &SystemLanguages() {
+	static const auto languages = [] {
 		const auto uiLanguages = QLocale::system().uiLanguages();
-		languages = (
+		return (
 			uiLanguages
 		) | ranges::views::transform([&](const auto &lang) {
 			return lang.left(std::max(lang.indexOf('_'), lang.indexOf('-')));
 		}) | ranges::views::unique | ranges::to_vector;
-	}
+	}();
 	return languages;
 }
 
@@ -80,18 +108,7 @@ inline auto SystemLanguages() {
 	return lang;
 }
 
-} // namespace
-
-namespace Platform::Spellchecker {
-
-void Init() {
-}
-
-std::vector<QString> ActiveLanguages() {
-	return SystemLanguages();
-}
-
-bool CheckSpelling(const QString &word) {
+bool CheckWord(const QString &word) {
 	if (@available(macOS 10.14, *)) {
 		const auto lang = PreferredRegionalVariant(
 			Language::Recognize(word).twoLetterCode());
@@ -120,7 +137,7 @@ bool CheckSpelling(const QString &word) {
 
 
 // There's no need to check the language on the Mac.
-void CheckSpellingText(
+void CheckText(
 	const QString &text,
 	MisspelledWords *misspelledWords) {
 // Probably never gonna be defined.
@@ -160,7 +177,7 @@ void CheckSpellingText(
 #endif
 }
 
-void FillSuggestionList(
+void FillSuggestions(
 	const QString &wrongWord,
 	std::vector<QString> *optionalSuggestions) {
 
@@ -191,21 +208,89 @@ void FillSuggestionList(
 	}
 }
 
+} // namespace
+
+void Init() {
+}
+
+std::vector<QString> ActiveLanguages() {
+	return SystemLanguages();
+}
+
+void PostToSpellChecker(FnMut<void()> task) {
+	SpellCheckerQueue().async([task = std::move(task)]() mutable {
+		RunSpellCheckerTask(task);
+	});
+}
+
+bool CheckSpelling(const QString &word) {
+	auto result = false;
+	InvokeSpellChecker([&] { result = CheckWord(word); });
+	return result;
+}
+
+void CheckSpellingText(const QString &text, MisspelledWords *misspelledWords) {
+	InvokeSpellChecker([&] { CheckText(text, misspelledWords); });
+}
+
+void FillSuggestionList(
+		const QString &word,
+		std::vector<QString> *suggestions) {
+	InvokeSpellChecker([&] { FillSuggestions(word, suggestions); });
+}
+
 void AddWord(const QString &word) {
-	[SharedSpellChecker() learnWord:Q2NSString(word)];
+	PostToSpellChecker([word] {
+		[SharedSpellChecker() learnWord:Q2NSString(word)];
+	});
+}
+
+void AddWordsIfMissing(std::vector<QString> words) {
+	if (words.empty()) {
+		return;
+	}
+	PostToSpellChecker([words = std::move(words)] {
+		auto *checker = SharedSpellChecker();
+		for (const auto &word : words) {
+			auto *native = Q2NSString(word);
+			if (![checker hasLearnedWord:native]) {
+				[checker learnWord:native];
+			}
+		}
+	});
 }
 
 void RemoveWord(const QString &word) {
-	[SharedSpellChecker() unlearnWord:Q2NSString(word)];
+	PostToSpellChecker([word] {
+		[SharedSpellChecker() unlearnWord:Q2NSString(word)];
+	});
 }
 
 void IgnoreWord(const QString &word) {
-	[SharedSpellChecker() ignoreWord:Q2NSString(word)
-		inSpellDocumentWithTag:0];
+	PostToSpellChecker([word] {
+		[SharedSpellChecker() ignoreWord:Q2NSString(word)
+			inSpellDocumentWithTag:0];
+	});
 }
 
 bool IsWordInDictionary(const QString &wordToCheck) {
-	return [SharedSpellChecker() hasLearnedWord:Q2NSString(wordToCheck)];
+	auto result = false;
+	InvokeSpellChecker([&] {
+		result = [SharedSpellChecker() hasLearnedWord:Q2NSString(wordToCheck)];
+	});
+	return result;
+}
+
+void IsWordInDictionary(QString word, FnMut<void(bool)> callback) {
+	PostToSpellChecker([
+		word = std::move(word),
+		callback = std::move(callback)
+	]() mutable {
+		const auto added = IsWordInDictionary(word);
+		crl::on_main([added, callback = std::move(callback)]() mutable {
+			callback(added);
+		});
+	});
 }
 
 bool IsSystemSpellchecker() {

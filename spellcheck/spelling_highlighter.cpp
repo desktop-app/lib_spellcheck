@@ -874,13 +874,15 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 	const auto word = NormalizeApostrophes(
 		cursorForPosition.selectedText());
 
+	const auto weakMenu = base::make_weak(menu.get());
 	auto fillMenu = [
 		=,
 		show = std::move(show),
 		menu = std::move(menu)
 	](
 			bool isCorrect,
-			const auto &suggestions,
+			bool inDictionary,
+			const std::vector<QString> &suggestions,
 			const auto &newTextCursor) mutable {
 		auto firstSuggestionIndex = -1;
 		const auto guard = gsl::finally([&] {
@@ -894,7 +896,7 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 		};
 
 		if (isCorrect) {
-			if (Platform::Spellchecker::IsWordInDictionary(word)) {
+			if (inDictionary) {
 				addSeparator();
 				auto remove = [=] {
 					Platform::Spellchecker::RemoveWord(word);
@@ -947,13 +949,23 @@ void SpellingHighlighter::fillSpellcheckerMenu(
 		newTextCursor = std::move(cursorForPosition),
 		fillMenu = std::move(fillMenu)
 	](bool correct, std::vector<QString> &&suggestions) mutable {
-		if (!weak) {
+		if (!weak || !weakMenu) {
 			return;
 		}
-		fillMenu(
-			correct,
-			std::move(suggestions),
-			std::move(newTextCursor));
+		if (!correct) {
+			fillMenu(false, false, suggestions, newTextCursor);
+			return;
+		}
+		Platform::Spellchecker::IsWordInDictionary(word, [
+			weak,
+			weakMenu,
+			newTextCursor = std::move(newTextCursor),
+			fillMenu = std::move(fillMenu)
+		](bool inDictionary) mutable {
+			if (weak && weakMenu) {
+				fillMenu(true, inDictionary, {}, newTextCursor);
+			}
+		});
 	});
 }
 

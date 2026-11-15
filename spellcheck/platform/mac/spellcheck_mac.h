@@ -10,4 +10,6 @@
 
 namespace Platform::Spellchecker {
 
+void PostToSpellChecker(FnMut<void()> task);
+
 } // namespace Platform::Spellchecker
