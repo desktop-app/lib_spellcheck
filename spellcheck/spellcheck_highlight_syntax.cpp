@@ -22,15 +22,15 @@
 #include <string>
 
 void spellchecker_InitHighlightingResource() {
-#ifdef Q_OS_MAC // Use resources from the .app bundle on macOS.
+#ifdef Q_OS_MACOS // Use resources from the .app bundle on macOS.
 
 	base::RegisterBundledResources(u"lib_spellcheck.rcc"_q);
 
-#else // Q_OS_MAC
+#else // Q_OS_MACOS
 
 	Q_INIT_RESOURCE(highlighting);
 
-#endif // Q_OS_MAC
+#endif // Q_OS_MACOS
 }
 
 namespace Spellchecker {
