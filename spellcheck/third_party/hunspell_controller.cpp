@@ -9,8 +9,6 @@
 
 #include "spellcheck/spellcheck_value.h"
 
-#include <crl/crl_object_on_queue.h>
-
 #include <atomic>
 #include <future>
 #include <optional>
@@ -26,11 +24,8 @@
 namespace Platform::Spellchecker::ThirdParty {
 namespace {
 
-using WordsMap = std::map<QChar::Script, std::vector<QString>>;
-
 // Maximum number of words in the custom spellcheck dictionary.
 constexpr auto kMaxSyncableDictionaryWords = 1300;
-constexpr auto kTimeLimitSuggestion = crl::time(1000);
 
 #ifdef Q_OS_WIN
 const auto kLineBreak = QByteArrayLiteral("\r\n");
@@ -108,6 +103,8 @@ QString CustomDictionaryPath() {
 	return body;
 }
 
+} // namespace
+
 class HunspellEngine {
 public:
 	HunspellEngine(const QString &lang);
@@ -131,37 +128,6 @@ private:
 	QString _lang;
 	QChar::Script _script;
 	std::unique_ptr<Hunspell> _hunspell;
-
-};
-
-// One queue owns all state, so there is no locking.
-class HunspellService final {
-public:
-	HunspellService();
-
-	void updateLanguages(const std::vector<QString> &langs);
-	[[nodiscard]] bool checkSpelling(const QString &wordToCheck);
-	[[nodiscard]] MisspelledWords checkSpellingText(const QString &text);
-	[[nodiscard]] std::vector<QString> lookupSuggestions(
-		const QString &wrongWord,
-		int generation);
-
-	void addWord(const QString &word);
-	void removeWord(const QString &word);
-	void ignoreWord(const QString &word);
-
-private:
-	void writeToFile();
-	void readFile();
-
-	std::vector<QString> &addedWords(const QString &word);
-
-	std::vector<std::unique_ptr<HunspellEngine>> _engines;
-	// An empty hunspell dictionary to fill it with our remembered words
-	// for getting suggests.
-	std::unique_ptr<Hunspell> _customDict;
-	WordsMap _ignoredWords;
-	WordsMap _addedWords;
 
 };
 
@@ -229,11 +195,14 @@ HunspellService::HunspellService()
 	readFile();
 }
 
+HunspellService::~HunspellService() = default;
+
 std::vector<QString> &HunspellService::addedWords(const QString &word) {
 	return _addedWords[::Spellchecker::WordScript(word)];
 }
 
-void HunspellService::updateLanguages(const std::vector<QString> &langs) {
+std::vector<QString> HunspellService::updateLanguages(
+		const std::vector<QString> &langs) {
 	_engines = ranges::views::all(
 		_engines
 	) | ranges::views::filter([&](const auto &engine) {
@@ -255,16 +224,11 @@ void HunspellService::updateLanguages(const std::vector<QString> &langs) {
 		}
 	}
 
-	auto loaded = ranges::views::all(
+	return ranges::views::all(
 		_engines
 	) | ranges::views::transform(
 		&HunspellEngine::lang
 	) | ranges::to_vector;
-
-	crl::on_main([loaded = std::move(loaded)]() mutable {
-		ActiveLanguagesMirror = loaded;
-		::Spellchecker::UpdateSupportedScripts(std::move(loaded));
-	});
 }
 
 bool HunspellService::checkSpelling(const QString &wordToCheck) {
@@ -296,7 +260,7 @@ MisspelledWords HunspellService::checkSpellingText(const QString &text) {
 	});
 }
 
-std::vector<QString> HunspellService::lookupSuggestions(
+std::vector<std::vector<QString>> HunspellService::suggestionSources(
 		const QString &wrongWord,
 		int generation) {
 	const auto wordScript = ::Spellchecker::WordScript(wrongWord);
@@ -328,7 +292,17 @@ std::vector<QString> HunspellService::lookupSuggestions(
 		engine->suggest(wrongWord, &list);
 		sources.push_back(std::move(list));
 	}
+	return sources;
+}
 
+std::vector<QString> HunspellService::lookupSuggestions(
+		const QString &wrongWord,
+		int generation) {
+	return InterleaveSuggestions(suggestionSources(wrongWord, generation));
+}
+
+std::vector<QString> InterleaveSuggestions(
+		const std::vector<std::vector<QString>> &sources) {
 	// Round-robin so one language doesn't starve the others.
 	auto result = std::vector<QString>();
 	for (auto index = 0;; ++index) {
@@ -481,12 +455,18 @@ void HunspellService::readFile() {
 
 ////// End of HunspellService class.
 
-[[nodiscard]] crl::object_on_queue<HunspellService> &Queue() {
+crl::object_on_queue<HunspellService> &Queue() {
 	static auto queue = crl::object_on_queue<HunspellService>();
 	return queue;
 }
 
-} // namespace
+int NextLookupGeneration() {
+	return ++LookupGeneration;
+}
+
+bool IsLookupObsolete(int generation) {
+	return LookupGeneration.load() != generation;
+}
 
 void CheckSpelling(QString word, FnMut<void(bool correct)> callback) {
 	Queue().with([
@@ -574,7 +554,11 @@ void UpdateLanguages(std::vector<int> languages) {
 	::Spellchecker::UpdateSupportedScripts(std::vector<QString>());
 	Queue().with([codes = std::move(languageCodes)](
 			HunspellService &instance) {
-		instance.updateLanguages(codes);
+		auto loaded = instance.updateLanguages(codes);
+		crl::on_main([loaded = std::move(loaded)]() mutable {
+			ActiveLanguagesMirror = loaded;
+			::Spellchecker::UpdateSupportedScripts(std::move(loaded));
+		});
 	});
 }
 
