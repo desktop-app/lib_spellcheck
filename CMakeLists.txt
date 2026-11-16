@@ -142,10 +142,3 @@ PRIVATE
     desktop-app::external_gsl
     desktop-app::external_xxhash
 )
-
-if (LINUX AND system_spellchecker)
-    find_package(PkgConfig REQUIRED)
-
-    pkg_search_module(DESKTOP_APP_ENCHANT REQUIRED enchant-2 enchant)
-    target_include_directories(lib_spellcheck SYSTEM PRIVATE ${DESKTOP_APP_ENCHANT_INCLUDE_DIRS})
-endif()
