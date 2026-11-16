@@ -36,6 +36,9 @@ rpl::event_stream<> SupportedScriptsEventStream;
 	return SupportedScripts;
 }
 
+std::vector<QString> SystemDictionariesList;
+rpl::event_stream<> SystemDictionariesEventStream;
+
 constexpr auto kFactor = 1000;
 
 constexpr auto kAcuteAccentChars = {
@@ -282,6 +285,22 @@ void UpdateSupportedScripts(std::vector<QString> languages) {
 
 rpl::producer<> SupportedScriptsChanged() {
 	return SupportedScriptsEventStream.events();
+}
+
+void UpdateSystemDictionaries(std::vector<QString> languages) {
+	if (SystemDictionariesList == languages) {
+		return;
+	}
+	SystemDictionariesList = std::move(languages);
+	SystemDictionariesEventStream.fire({});
+}
+
+std::vector<QString> SystemDictionaries() {
+	return SystemDictionariesList;
+}
+
+rpl::producer<> SystemDictionariesChanged() {
+	return SystemDictionariesEventStream.events();
 }
 
 MisspelledWords RangesFromText(

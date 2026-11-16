@@ -22,6 +22,7 @@ public:
 	// Returns the languages left without a dictionary
 	std::vector<QString> updateLanguages(const std::vector<QString> &langs);
 	std::vector<QString> languages() const;
+	std::vector<QString> systemLanguages() const;
 	bool checkSpelling(const QString &word);
 	std::vector<std::vector<QString>> suggestionSources(
 		const QString &wrongWord,
@@ -79,6 +80,25 @@ std::vector<QString> EnchantSpellChecker::languages() const {
 	) | ranges::views::transform(
 		&Validator::lang
 	) | ranges::to_vector;
+}
+
+std::vector<QString> EnchantSpellChecker::systemLanguages() const {
+	auto result = std::vector<QString>();
+	for (auto tag : Enchant::ListDictionaries()) {
+		tag.replace('-', '_');
+		const auto locale = QLocale(tag);
+		const auto name = locale.name();
+		// Variants like de_DE_frami come along with the plain dictionaries
+		const auto plain = tag.contains('_')
+			? (name == tag)
+			: name.startsWith(tag + '_');
+		if (locale.language() != QLocale::C
+			&& plain
+			&& !ranges::contains(result, name)) {
+			result.push_back(name);
+		}
+	}
+	return result;
 }
 
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
@@ -180,6 +200,9 @@ void UpdateLanguages(std::vector<int> languages) {
 	ThirdParty::Queue().with([codes = std::move(codes)](
 			ThirdParty::HunspellService &hunspell) {
 		const auto instance = EnchantSpellChecker::instance();
+		crl::on_main([system = instance->systemLanguages()]() mutable {
+			::Spellchecker::UpdateSystemDictionaries(std::move(system));
+		});
 		const auto rest = instance->updateLanguages(codes);
 		auto loaded = instance->languages();
 		for (auto &lang : hunspell.updateLanguages(rest)) {

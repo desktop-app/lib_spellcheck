@@ -44,4 +44,8 @@ QLocale LocaleFromLangId(int langId);
 void UpdateSupportedScripts(std::vector<QString> languages);
 rpl::producer<> SupportedScriptsChanged();
 
+void UpdateSystemDictionaries(std::vector<QString> languages);
+[[nodiscard]] std::vector<QString> SystemDictionaries();
+[[nodiscard]] rpl::producer<> SystemDictionariesChanged();
+
 } // namespace Spellchecker

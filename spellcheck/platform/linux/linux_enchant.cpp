@@ -16,7 +16,18 @@ struct EnchantBroker;
 
 namespace {
 
+using EnchantDictDescribeFn = void(*)(
+	const char *tag,
+	const char *providerName,
+	const char *providerDescription,
+	const char *providerFile,
+	void *userData);
+
 EnchantBroker *(*enchant_broker_init)();
+void (*enchant_broker_list_dicts)(
+	EnchantBroker *broker,
+	EnchantDictDescribeFn callback,
+	void *userData);
 EnchantDict *(*enchant_broker_request_dict)(
 	EnchantBroker *broker,
 	const char *tag);
@@ -35,6 +46,7 @@ void (*enchant_dict_free_string_list)(EnchantDict *dict, char **list);
 		RTLD_NODELETE);
 	return lib
 		&& LOAD_LIBRARY_SYMBOL(lib, enchant_broker_init)
+		&& LOAD_LIBRARY_SYMBOL(lib, enchant_broker_list_dicts)
 		&& LOAD_LIBRARY_SYMBOL(lib, enchant_broker_request_dict)
 		&& LOAD_LIBRARY_SYMBOL(lib, enchant_broker_free_dict)
 		&& LOAD_LIBRARY_SYMBOL(lib, enchant_dict_check)
@@ -96,6 +108,24 @@ std::unique_ptr<Dictionary> RequestDictionary(const QString &lang) {
 		return nullptr;
 	}
 	return std::make_unique<Dictionary>(dict);
+}
+
+std::vector<QString> ListDictionaries() {
+	const auto broker = Broker();
+	if (!broker) {
+		return {};
+	}
+	auto result = std::vector<QString>();
+	enchant_broker_list_dicts(broker, [](
+			const char *tag,
+			const char *,
+			const char *,
+			const char *,
+			void *userData) {
+		static_cast<std::vector<QString>*>(userData)->push_back(
+			QString::fromUtf8(tag));
+	}, &result);
+	return result;
 }
 
 } // namespace Platform::Spellchecker::Enchant

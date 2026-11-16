@@ -28,5 +28,6 @@ private:
 
 [[nodiscard]] std::unique_ptr<Dictionary> RequestDictionary(
 	const QString &lang);
+[[nodiscard]] std::vector<QString> ListDictionaries();
 
 } // namespace Platform::Spellchecker::Enchant
