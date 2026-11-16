@@ -1,12 +1,11 @@
 // This file is part of Desktop App Toolkit,
 // a set of libraries for developing nice desktop applications.
 //
-// Author: Nicholas Guriev <guriev-ns@ya.ru>, public domain, 2019
-// License: CC0, https://creativecommons.org/publicdomain/zero/1.0/legalcode
+// For license and copyright information please follow this link:
+// https://github.com/desktop-app/legal/blob/master/LEGAL
+//
 
 #include <future>
-#include <set>
-#include <QLocale>
 
 #include "spellcheck/platform/linux/linux_enchant.h"
 
@@ -21,48 +20,33 @@ std::vector<QString> ActiveLanguagesMirror;
 
 class EnchantSpellChecker {
 public:
-	auto knownLanguages();
+	// Returns the languages left without a dictionary
+	std::vector<QString> updateLanguages(const std::vector<QString> &langs);
+	std::vector<QString> languages() const;
 	bool checkSpelling(const QString &word);
-	auto findSuggestions(const QString &word);
+	std::vector<std::vector<QString>> suggestionSources(
+		const QString &wrongWord,
+		int generation);
 	static EnchantSpellChecker *instance();
 
 private:
+	struct Validator {
+		QString lang;
+		QChar::Script script = QChar::Script_Unknown;
+		std::unique_ptr<enchant::Dict> dict;
+	};
+
 	EnchantSpellChecker();
 	EnchantSpellChecker(const EnchantSpellChecker&) = delete;
 	EnchantSpellChecker& operator =(const EnchantSpellChecker&) = delete;
 
 	std::unique_ptr<enchant::Broker> _brokerHandle;
-	std::vector<std::unique_ptr<enchant::Dict>> _validators;
+	std::vector<Validator> _validators;
 };
 
 EnchantSpellChecker::EnchantSpellChecker() {
 	if (!enchant::loader::do_explicit_linking()) return;
-	std::set<std::string> langs;
 	_brokerHandle = std::make_unique<enchant::Broker>();
-	_brokerHandle->list_dicts([](
-			const char *language,
-			const char *provider,
-			const char *description,
-			const char *filename,
-			void *our_payload) {
-		static_cast<decltype(langs)*>(our_payload)->insert(language);
-	}, &langs);
-	using DictPtr = std::unique_ptr<enchant::Dict>;
-	_validators.reserve(langs.size());
-	try {
-		std::string langTag = QLocale::system().name().toStdString();
-		_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
-		langs.erase(langTag);
-	} catch (const enchant::Exception &e) {
-		// no first dictionary found
-	}
-	for (const std::string &language : langs) {
-		try {
-			_validators.push_back(DictPtr(_brokerHandle->request_dict(language)));
-		} catch (const enchant::Exception &e) {
-			DEBUG_LOG(("Catch after request_dict: %1").arg(e.what()));
-		}
-	}
 }
 
 // Used on the Hunspell queue only
@@ -71,39 +55,88 @@ EnchantSpellChecker *EnchantSpellChecker::instance() {
 	return &capsule;
 }
 
-auto EnchantSpellChecker::knownLanguages() {
-	return _validators | ranges::views::transform([](const auto &validator) {
-		return QString(validator->get_lang().c_str());
-	}) | ranges::to_vector;
+std::vector<QString> EnchantSpellChecker::updateLanguages(
+		const std::vector<QString> &langs) {
+	_validators.erase(ranges::remove_if(_validators, [&](const auto &v) {
+		return !ranges::contains(langs, v.lang);
+	}), end(_validators));
+
+	auto result = std::vector<QString>();
+	for (const auto &lang : langs) {
+		if (ranges::contains(_validators, lang, &Validator::lang)) {
+			continue;
+		}
+		auto dict = std::unique_ptr<enchant::Dict>();
+		if (_brokerHandle) {
+			try {
+				dict.reset(_brokerHandle->request_dict(lang.toStdString()));
+			} catch (const enchant::Exception &) {
+			}
+		}
+		if (!dict) {
+			result.push_back(lang);
+			continue;
+		}
+		_validators.push_back({
+			.lang = lang,
+			.script = ::Spellchecker::LocaleToScriptCode(lang),
+			.dict = std::move(dict),
+		});
+	}
+	return result;
+}
+
+std::vector<QString> EnchantSpellChecker::languages() const {
+	return ranges::views::all(
+		_validators
+	) | ranges::views::transform(
+		&Validator::lang
+	) | ranges::to_vector;
 }
 
 bool EnchantSpellChecker::checkSpelling(const QString &word) {
-	auto w = word.toStdString();
-	return ranges::any_of(_validators, [&](const auto &validator) {
+	const auto script = ::Spellchecker::WordScript(word);
+	const auto w = word.toStdString();
+	return ranges::any_of(_validators, [&](const Validator &validator) {
+		if (validator.script != script) {
+			return false;
+		}
 		try {
-			return validator->check(w);
+			return validator.dict->check(w);
 		} catch (const enchant::Exception &e) {
 			DEBUG_LOG(("Catch after check '%1': %2").arg(word, e.what()));
 			return true;
 		}
-	}) || _validators.empty();
+	});
 }
 
-auto EnchantSpellChecker::findSuggestions(const QString &word) {
-	auto w = word.toStdString();
-	std::vector<QString> result;
+std::vector<std::vector<QString>> EnchantSpellChecker::suggestionSources(
+		const QString &wrongWord,
+		int generation) {
+	const auto script = ::Spellchecker::WordScript(wrongWord);
+	const auto w = wrongWord.toStdString();
+	auto result = std::vector<std::vector<QString>>();
+	const auto startTime = crl::now();
 	for (const auto &validator : _validators) {
-		for (const auto &replacement : validator->suggest(w)) {
-			if (!replacement.empty()) {
-				result.push_back(replacement.c_str());
-			}
-			if (result.size() >= Platform::Spellchecker::kMaxSuggestions) {
-				break;
-			}
+		if (ThirdParty::IsLookupObsolete(generation)) {
+			return {};
 		}
-		if (!result.empty()) {
+		if ((crl::now() - startTime) > ThirdParty::kTimeLimitSuggestion) {
 			break;
 		}
+		if (validator.script != script) {
+			continue;
+		}
+		const auto guesses = validator.dict->suggest(w);
+		result.push_back(ranges::views::all(
+			guesses
+		) | ranges::views::filter([](const std::string &guess) {
+			return !guess.empty();
+		}) | ranges::views::take(
+			kMaxSuggestions
+		) | ranges::views::transform([](const std::string &guess) {
+			return QString::fromStdString(guess);
+		}) | ranges::to_vector);
 	}
 	return result;
 }
@@ -132,7 +165,11 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 		return {};
 	}
 	auto sources = hunspell.suggestionSources(word, generation);
-	sources.push_back(EnchantSpellChecker::instance()->findSuggestions(word));
+	for (auto &source : EnchantSpellChecker::instance()->suggestionSources(
+			word,
+			generation)) {
+		sources.push_back(std::move(source));
+	}
 	return ThirdParty::InterleaveSuggestions(sources);
 }
 
@@ -158,8 +195,21 @@ std::vector<QString> ActiveLanguages() {
 }
 
 void UpdateLanguages(std::vector<int> languages) {
-	ThirdParty::Queue().with([](ThirdParty::HunspellService &) {
-		auto loaded = EnchantSpellChecker::instance()->knownLanguages();
+	auto codes = ranges::views::all(
+		languages
+	) | ranges::views::transform([](int langId) {
+		return ::Spellchecker::LocaleFromLangId(langId).name();
+	}) | ranges::to_vector;
+
+	::Spellchecker::UpdateSupportedScripts(std::vector<QString>());
+	ThirdParty::Queue().with([codes = std::move(codes)](
+			ThirdParty::HunspellService &hunspell) {
+		const auto instance = EnchantSpellChecker::instance();
+		const auto rest = instance->updateLanguages(codes);
+		auto loaded = instance->languages();
+		for (auto &lang : hunspell.updateLanguages(rest)) {
+			loaded.push_back(std::move(lang));
+		}
 		crl::on_main([loaded = std::move(loaded)]() mutable {
 			ActiveLanguagesMirror = loaded;
 			::Spellchecker::UpdateSupportedScripts(std::move(loaded));
@@ -257,7 +307,7 @@ void LookupWord(
 }
 
 bool IsSystemSpellchecker() {
-	return true;
+	return false;
 }
 
 } // namespace Platform::Spellchecker

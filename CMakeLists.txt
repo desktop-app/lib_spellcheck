@@ -10,13 +10,8 @@ init_target(lib_spellcheck)
 
 get_filename_component(src_loc . REALPATH)
 
-set(use_enchant 0)
-if (LINUX AND DESKTOP_APP_USE_ENCHANT)
-    set(use_enchant 1)
-endif()
-
 set(system_spellchecker 0)
-if ((APPLE OR WIN32 OR use_enchant) AND NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
+if (NOT DESKTOP_APP_USE_HUNSPELL_ONLY)
     set(system_spellchecker 1)
 endif()
 
@@ -148,7 +143,7 @@ PRIVATE
     desktop-app::external_xxhash
 )
 
-if (LINUX AND use_enchant)
+if (LINUX AND system_spellchecker)
     find_package(PkgConfig REQUIRED)
 
     pkg_search_module(DESKTOP_APP_ENCHANT REQUIRED enchant-2 enchant)
