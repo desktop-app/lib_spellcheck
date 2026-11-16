@@ -17,7 +17,6 @@ namespace Platform::Spellchecker {
 namespace {
 
 constexpr auto kHspell = "hspell";
-constexpr auto kOrdering = "hspell,aspell,hunspell,myspell";
 
 using DictPtr = std::unique_ptr<enchant::Dict>;
 
@@ -72,7 +71,6 @@ EnchantSpellChecker::EnchantSpellChecker() {
 	_validators.reserve(langs.size());
 	try {
 		std::string langTag = QLocale::system().name().toStdString();
-		_brokerHandle->set_ordering(langTag, kOrdering);
 		_validators.push_back(DictPtr(_brokerHandle->request_dict(langTag)));
 		langs.erase(langTag);
 	} catch (const enchant::Exception &e) {
@@ -80,7 +78,6 @@ EnchantSpellChecker::EnchantSpellChecker() {
 	}
 	for (const std::string &language : langs) {
 		try {
-			_brokerHandle->set_ordering(language, kOrdering);
 			auto validator = DictPtr(_brokerHandle->request_dict(language));
 			if (!validator) {
 				continue;
@@ -134,16 +131,12 @@ bool EnchantSpellChecker::checkSpelling(const QString &word) {
 			})) {
 			return false;
 		}
-		if (validator->get_lang().find("uk") == 0) {
-			return false;
-		}
 		return checkWord(validator, w);
 	}) || _validators.empty();
 }
 
 auto EnchantSpellChecker::findSuggestions(const QString &word) {
 	std::lock_guard lock(_mutex);
-	const auto wordScript = ::Spellchecker::WordScript(word);
 	auto w = word.toStdString();
 	std::vector<QString> result;
 
@@ -167,10 +160,6 @@ auto EnchantSpellChecker::findSuggestions(const QString &word) {
 		}
 	}
 	for (const auto &validator : _validators) {
-		const auto lang = QString::fromStdString(validator->get_lang());
-		if (wordScript != ::Spellchecker::LocaleToScriptCode(lang)) {
-			continue;
-		}
 		convertSuggestions(validator->suggest(w));
 		if (!result.empty()) {
 			break;
